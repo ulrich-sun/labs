@@ -200,6 +200,19 @@ helm version
 ✅ `status: done` ; un nœud `Ready` ; Helm répond.
 ❌ `status: error` → `sudo tail -50 /var/log/cloud-init-output.log`.
 
+**Swap obligatoire en `t3.medium`** : une fois tous les outils installés, `k3s-server` (~2 Go)
+et Argo CD saturent les 4 Go. Sans swap, l'API Kubernetes ne répond plus, k3s plante
+(`Transaction commit failed`) et les promotions échouent sur des délais dépassés.
+k3s tolère la swap ; les pods ne l'utilisent pas, seuls les processus système y déchargent
+leurs pages inactives.
+
+```bash
+sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab
+echo vm.swappiness=60 | sudo tee /etc/sysctl.d/90-swap.conf && sudo sysctl -p /etc/sysctl.d/90-swap.conf
+free -m                                        # Swap: 4095
+```
+
 **Preuve de la PSA** (dans un namespace **sans aucun label** : c'est le défaut du cluster qui
 s'applique) :
 
@@ -382,6 +395,15 @@ http://excalidraw-staging.apps.&lt;IP&gt;.sslip.io (HTTPRoute `excalidraw` de ch
 ❌ Pas de Freight → `kubectl get warehouse excalidraw -n excalidraw-poc -o jsonpath='{.status.conditions}'`
 (souvent `429 Too Many Requests` de Docker Hub : ajouter `dockerhub-creds`, étape 7).
 ❌ Promotion `Failed` → `kubectl get promotion <nom> -n excalidraw-poc -o jsonpath='{.status.message}'`.
+❌ Promotion `Errored` sur un délai dépassé (`context deadline exceeded`) → VM saturée (cf. swap,
+étape 4). L'auto-promotion ne relance pas : Kargo > stage > **Promote** sur la même Freight, ou :
+
+```bash
+FREIGHT=$(kubectl get stage dev -n excalidraw-poc -o jsonpath='{.status.freightHistory[0].items.*.name}')
+kubectl get stage staging -n excalidraw-poc -o json | jq --arg f "$FREIGHT" \
+  '{apiVersion:"kargo.akuity.io/v1alpha1",kind:"Promotion",metadata:{generateName:"staging-",namespace:"excalidraw-poc"},spec:({stage:"staging",freight:$f}+.spec.promotionTemplate.spec)}' \
+  | kubectl create -f -
+```
 
 ## Étape 10 — Promotion en prod : toute la pile
 

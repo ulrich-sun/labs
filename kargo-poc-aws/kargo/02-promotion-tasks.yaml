@@ -215,8 +215,10 @@ spec:
       as: wait
       retry:
         timeout: 15m          # aligné sur activeDeadlineSeconds des custom steps
+        errorThreshold: 5     # erreurs passagères tolérées (API Argo lente, redémarrage)
       config:
         method: GET
+        timeout: 30s          # délai par requête (10 s par défaut)
         url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/${{ task.outputs.submit.workflow }}
         pollInterval: 15s
         # `?.` : juste après sa création, le workflow n'a pas encore de status.
@@ -276,8 +278,10 @@ spec:
       if: ${{ !ctx.meta.promotion.rollback }}
       retry:
         timeout: 8h           # aligné sur activeDeadlineSeconds d'approval-gate
+        errorThreshold: 5     # erreurs passagères tolérées (API Argo lente, redémarrage)
       config:
         method: GET
+        timeout: 30s          # délai par requête (10 s par défaut)
         url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/${{ task.outputs.submit.workflow }}
         pollInterval: 20s
         successExpression: response.status == 200 && response.body?.status?.phase == 'Succeeded'
