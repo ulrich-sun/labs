@@ -1,5 +1,5 @@
 # Point d'entrée HTTP unique du cluster (Gateway API, contrôleur : Traefik de k3s).
-# apps.54.227.183.159.sslip.io = apps.<IP publique>.sslip.io (terraform output apps_domain) :
+# apps.98.90.197.103.sslip.io = apps.<IP publique>.sslip.io (terraform output apps_domain) :
 # sslip.io résout <n'importe quoi>.apps.<IP>.sslip.io vers <IP>, sans DNS à gérer.
 # Le port 8000 est l'entrypoint "web" de Traefik, publié sur le port 80 de la VM
 # par servicelb. Le security group n'ouvre 80/443 qu'aux IP autorisées.
@@ -22,7 +22,7 @@ spec:
     - name: http
       protocol: HTTP
       port: 8000
-      hostname: "*.apps.54.227.183.159.sslip.io"
+      hostname: "*.apps.98.90.197.103.sslip.io"
       allowedRoutes:
         namespaces:
           from: All      # chaque outil / environnement publie sa route dans son namespace

@@ -12,7 +12,7 @@ Promotion d'Excalidraw entre trois **namespaces** d'un cluster k3s sur une VM EC
   (réservés à Kargo sur Akuity Platform) sont reproduits avec **Argo Workflows**, appelé par
   l'étape native `http`.
 - Interfaces exposées par la **Gateway API** (Traefik de k3s + `HTTPRoute`) sur
-  `http://<app>.apps.<IP>.sslip.io` (ex. `http://kargo.apps.54.227.183.159.sslip.io`) :
+  `http://<app>.apps.<IP>.sslip.io` (ex. `http://kargo.apps.98.90.197.103.sslip.io`) :
   aucun DNS à gérer. Ports 22, 80 et 443 ouverts **uniquement depuis ton IP**.
 
 ## Contenu
@@ -200,18 +200,14 @@ helm version
 ✅ `status: done` ; un nœud `Ready` ; Helm répond.
 ❌ `status: error` → `sudo tail -50 /var/log/cloud-init-output.log`.
 
-**Swap obligatoire en `t3.medium`** : une fois tous les outils installés, `k3s-server` (~2 Go)
-et Argo CD saturent les 4 Go. Sans swap, l'API Kubernetes ne répond plus, k3s plante
-(`Transaction commit failed`) et les promotions échouent sur des délais dépassés.
-k3s tolère la swap ; les pods ne l'utilisent pas, seuls les processus système y déchargent
-leurs pages inactives.
-
 ```bash
-sudo fallocate -l 4G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
-echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab
-echo vm.swappiness=60 | sudo tee /etc/sysctl.d/90-swap.conf && sudo sysctl -p /etc/sysctl.d/90-swap.conf
 free -m                                        # Swap: 4095
 ```
+
+✅ 4 Go de swap, créés par le user-data. **Indispensable en `t3.medium`** : une fois tous les
+outils installés, `k3s-server` (~2 Go) et Argo CD saturent les 4 Go. Sans swap, l'API
+Kubernetes ne répond plus, k3s plante (`Transaction commit failed`) et les promotions échouent
+sur des délais dépassés.
 
 **Preuve de la PSA** (dans un namespace **sans aucun label** : c'est le défaut du cluster qui
 s'applique) :

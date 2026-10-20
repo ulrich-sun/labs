@@ -5,6 +5,18 @@ set -euxo pipefail
 apt-get update
 apt-get install -y git jq curl openssl apache2-utils
 
+# --- Swap 4 Go : indispensable en t3.medium -----------------------------------
+# Avec tous les outils, k3s-server (~2 Go) + Argo CD saturent les 4 Go : sans
+# swap, l'API ne répond plus et k3s plante. k3s tolère la swap ; les pods ne
+# l'utilisent pas, seuls les processus système y déchargent leurs pages inactives.
+fallocate -l 4G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo "/swapfile none swap sw 0 0" >> /etc/fstab
+echo "vm.swappiness=60" > /etc/sysctl.d/90-swap.conf
+sysctl -p /etc/sysctl.d/90-swap.conf
+
 # --- Pod Security Admission : "restricted" PAR DÉFAUT sur TOUT le cluster ----
 # Tout namespace sans label pod-security.kubernetes.io/* hérite de "restricted" :
 # un Pod qui tourne en root (ou sans runAsNonRoot, seccomp RuntimeDefault,
@@ -64,6 +76,8 @@ curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="${k3s_channel}" sh -
 until [ -f /etc/rancher/k3s/k3s.yaml ]; do sleep 2; done
 install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.kube
 install -o ubuntu -g ubuntu -m 0600 /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+# kubectl (k3s) et helm lisent ce kubeconfig, y compris en "ssh vm 'commande'"
+echo 'KUBECONFIG=/home/ubuntu/.kube/config' >> /etc/environment
 
 # Helm
 curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash

@@ -16,7 +16,7 @@ global:
       type: RuntimeDefault
 
 api:
-  host: kargo.apps.54.227.183.159.sslip.io   # HTTPRoute gateway/10-tools-routes.yaml
+  host: kargo.apps.98.90.197.103.sslip.io   # HTTPRoute gateway/10-tools-routes.yaml
   tls:
     enabled: false          # HTTP derrière la Gateway
   adminAccount:
