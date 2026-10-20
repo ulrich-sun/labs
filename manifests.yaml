@@ -136,7 +136,7 @@ spec:
       namespace: gateway
       sectionName: http
   hostnames:
-    - "excalidraw-dev.apps.54.227.183.159.sslip.io"
+    - "excalidraw-dev.apps.98.90.197.103.sslip.io"
   rules:
     - backendRefs:
         - name: excalidraw
