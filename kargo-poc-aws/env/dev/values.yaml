@@ -1,0 +1,16 @@
+# Valeurs de l'environnement "dev" (namespace excalidraw-dev).
+# Surchargent charts/excalidraw/values.yaml.
+#
+# ⚠️ image.tag et image.digest sont RÉÉCRITS par Kargo à chaque promotion
+#    (résultat visible sur la branche stage/dev). Ne pas supprimer ces clés.
+image:
+  tag: latest
+  digest: ""
+
+replicaCount: 1
+
+podLabels:
+  env: dev
+
+httpRoute:
+  hostname: excalidraw-dev.apps.54.227.183.159.sslip.io

@@ -1,0 +1,12 @@
+# Doit être REFUSÉ : l'image officielle Excalidraw, telle quelle, tourne en root.
+#   kubectl apply -f tests/psa/root-pod.yaml
+#   -> Error from server (Forbidden): ... violates PodSecurity "restricted:latest"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: psa-test-root
+  namespace: psa-test
+spec:
+  containers:
+    - name: excalidraw
+      image: docker.io/excalidraw/excalidraw:latest

@@ -1,0 +1,11 @@
+# Argo CD (chart argo/argo-cd), version allégée pour une VM de 4 Go.
+# Les containerSecurityContext par défaut du chart respectent la PSA "restricted".
+dex:
+  enabled: false          # pas de SSO dans la POC : compte admin
+notifications:
+  enabled: false
+configs:
+  cm:
+    url: http://argocd.apps.54.227.183.159.sslip.io
+  params:
+    server.insecure: true # HTTP derrière la Gateway (HTTPRoute argocd)

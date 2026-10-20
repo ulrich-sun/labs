@@ -1,0 +1,30 @@
+# Kargo (chart oci://ghcr.io/akuity/kargo-charts/kargo).
+# Le hash du mot de passe admin et la clé de signature sont passés en --set
+# à l'installation (jamais écrits dans Git).
+
+# Le chart ne pose AUCUN securityContext par défaut : sans ce bloc, la PSA
+# "restricted" du cluster refuse tous les pods Kargo.
+global:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+    seccompProfile:
+      type: RuntimeDefault
+
+api:
+  host: kargo.apps.54.227.183.159.sslip.io   # HTTPRoute gateway/10-tools-routes.yaml
+  tls:
+    enabled: false          # HTTP derrière la Gateway
+  adminAccount:
+    enabled: true
+    tokenTTL: 24h
+
+controller:
+  argocd:
+    namespace: argocd
+  rollouts:
+    integrationEnabled: true   # vérifications via AnalysisTemplate

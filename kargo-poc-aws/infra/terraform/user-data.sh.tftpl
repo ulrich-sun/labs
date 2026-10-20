@@ -1,0 +1,72 @@
+#!/bin/bash
+# Exécuté une fois au premier démarrage. Journal : /var/log/cloud-init-output.log
+set -euxo pipefail
+
+apt-get update
+apt-get install -y git jq curl openssl apache2-utils
+
+# --- Pod Security Admission : "restricted" PAR DÉFAUT sur TOUT le cluster ----
+# Tout namespace sans label pod-security.kubernetes.io/* hérite de "restricted" :
+# un Pod qui tourne en root (ou sans runAsNonRoot, seccomp RuntimeDefault,
+# drop ALL, allowPrivilegeEscalation=false) est REFUSÉ par l'API.
+# Seul kube-system est exempté (coredns, local-path-provisioner, metrics-server).
+mkdir -p /etc/rancher/k3s
+cat > /etc/rancher/k3s/psa.yaml <<'EOF'
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "restricted"
+        enforce-version: "latest"
+        audit: "restricted"
+        audit-version: "latest"
+        warn: "restricted"
+        warn-version: "latest"
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: [kube-system]
+EOF
+
+cat > /etc/rancher/k3s/config.yaml <<'EOF'
+write-kubeconfig-mode: "0600"
+pod-security-admission-config-file: /etc/rancher/k3s/psa.yaml
+EOF
+
+# --- Gateway API : Traefik (embarqué dans k3s) comme contrôleur -----------------
+# Traefik et servicelb tournent dans kube-system (exempté de la PSA) ; servicelb
+# publie les ports 80/443 de Traefik sur l'IP de la VM. Le provider
+# kubernetesGateway crée la GatewayClass "traefik" ; la Gateway "apps" et les
+# HTTPRoutes sont dans gateway/ (dépôt GitOps).
+mkdir -p /var/lib/rancher/k3s/server/manifests
+cat > /var/lib/rancher/k3s/server/manifests/traefik-config.yaml <<'EOF'
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
+    gateway:
+      enabled: false       # la Gateway "apps" est fournie par gateway/
+EOF
+
+curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="${k3s_channel}" sh -
+
+# kubeconfig pour l'utilisateur ubuntu
+until [ -f /etc/rancher/k3s/k3s.yaml ]; do sleep 2; done
+install -d -o ubuntu -g ubuntu -m 0700 /home/ubuntu/.kube
+install -o ubuntu -g ubuntu -m 0600 /etc/rancher/k3s/k3s.yaml /home/ubuntu/.kube/config
+
+# Helm
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+echo "source <(kubectl completion bash)" >> /home/ubuntu/.bashrc
+touch /var/lib/poc-ready

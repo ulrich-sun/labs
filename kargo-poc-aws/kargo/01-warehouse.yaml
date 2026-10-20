@@ -1,0 +1,36 @@
+# ---------------------------------------------------------------------------
+# Le Warehouse crée une Freight (lot versionné, promu d'environnement en
+# environnement) dès qu'un des deux artefacts surveillés change :
+#
+#  1. L'IMAGE officielle Excalidraw (Docker Hub), sans aucun build.
+#     Docker Hub ne publie que "latest" et d'anciens tags "sha-xxxxxxx" : pas de
+#     numéro de version. Kargo retient le tag construit le plus récemment parmi
+#     une courte liste et ENREGISTRE SON DIGEST : même "latest", la Freight est
+#     immuable.
+#  2. La CONFIGURATION (chart + values) sur la branche main du dépôt GitOps.
+#     Tout commit dans charts/ ou env/ crée une Freight.
+#
+# Docker Hub limite les accès anonymes : intervalle de 10 min et liste de tags
+# courte. Identifiants Docker Hub optionnels : cf. README, étape 7.
+# ---------------------------------------------------------------------------
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: excalidraw
+  namespace: excalidraw-poc
+spec:
+  interval: 10m
+  subscriptions:
+    - image:
+        repoURL: docker.io/excalidraw/excalidraw
+        imageSelectionStrategy: NewestBuild
+        allowTagsRegexes:
+          - ^latest$
+          - ^sha-cc201a6$
+        discoveryLimit: 2
+    - git:
+        repoURL: git@github.com:ulrich-sun/labs.git
+        branch: main
+        includePaths:
+          - kargo-poc-aws/charts   # dossier du projet dans le dépôt GitOps
+          - kargo-poc-aws/env

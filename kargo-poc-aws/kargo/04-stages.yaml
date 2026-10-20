@@ -1,0 +1,132 @@
+# ---------------------------------------------------------------------------
+# Pipeline : Warehouse -> dev -> staging -> prod (un namespace par environnement)
+#
+# Pile d'étapes de promotion de chaque Stage :
+#
+#   dev      render-and-sync                                   (auto)
+#   staging  custom-step(precheck) -> render-and-sync          (auto)
+#   prod     custom-step(precheck) -> wait-for-approval
+#            -> render-and-sync -> custom-step(release-record) (manuel)
+#
+# Chaque brique de la pile a un alias (`as`) : c'est le nom affiché dans l'UI
+# Kargo pendant la promotion.
+# ---------------------------------------------------------------------------
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        direct: true                 # reçoit directement chaque nouvelle Freight
+  promotionTemplate:
+    spec:
+      steps:
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: git@github.com:ulrich-sun/labs.git
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-dev.svc.cluster.local
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: staging
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        stages:
+          - dev                      # uniquement ce qui a été VÉRIFIÉ en dev
+  promotionTemplate:
+    spec:
+      steps:
+        # 1. CUSTOM STEP : dev sert bien cette version + politique d'image
+        - task:
+            name: custom-step
+          as: precheck
+          vars:
+            - name: workflowTemplate
+              value: custom-precheck
+            - name: checkUrl
+              value: http://excalidraw.excalidraw-dev.svc.cluster.local
+        # 2. Déploiement (étapes natives Kargo)
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: git@github.com:ulrich-sun/labs.git
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-staging.svc.cluster.local
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        stages:
+          - staging
+        requiredSoakTime: 5m         # la version doit "mûrir" 5 min en staging
+  promotionTemplate:
+    spec:
+      steps:
+        # 1. CUSTOM STEP : staging sert bien cette version + politique d'image
+        - task:
+            name: custom-step
+          as: precheck
+          vars:
+            - name: workflowTemplate
+              value: custom-precheck
+            - name: checkUrl
+              value: http://excalidraw.excalidraw-staging.svc.cluster.local
+        # 2. WAIT-FOR-APPROVAL : pause jusqu'à la décision humaine
+        - task:
+            name: wait-for-approval
+          as: approval
+        # 3. Déploiement. Variante : `render-pr-and-sync` pour exiger EN PLUS
+        #    une Pull Request GitHub approuvée.
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: git@github.com:ulrich-sun/labs.git
+        # 4. CUSTOM STEP post-déploiement : trace de la mise en production
+        - task:
+            name: custom-step
+          as: release-record
+          vars:
+            - name: workflowTemplate
+              value: custom-release-record
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-prod.svc.cluster.local

@@ -1,0 +1,25 @@
+# Droit supplémentaire pour le custom step "custom-release-record" :
+# créer et lire des ConfigMaps dans excalidraw-gates, et rien d'autre.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: release-record-writer
+  namespace: excalidraw-gates
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-record-writer
+  namespace: excalidraw-gates
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: release-record-writer
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflow
+    namespace: excalidraw-gates

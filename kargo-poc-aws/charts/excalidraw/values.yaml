@@ -1,0 +1,60 @@
+# Valeurs PAR DÉFAUT, communes à tous les environnements.
+# Chaque environnement les surcharge dans env/<env>/values.yaml.
+
+# Image officielle Excalidraw = SOURCE des fichiers statiques (initContainer).
+# C'est elle que le Warehouse Kargo surveille et que les promotions font avancer.
+image:
+  repository: docker.io/excalidraw/excalidraw
+  tag: latest          # réécrit par Kargo à chaque promotion
+  digest: ""           # réécrit par Kargo : l'image est tirée par digest (immuable)
+  pullPolicy: IfNotPresent
+  contentPath: /usr/share/nginx/html
+
+# Serveur web officiel non-root (uid 101, port 8080). Changer ce tag est un
+# changement de CONFIGURATION, promu comme une version (nouvelle Freight).
+webServer:
+  image: docker.io/nginxinc/nginx-unprivileged:1.27-alpine
+  port: 8080
+
+replicaCount: 1
+
+service:
+  port: 80
+
+# Exposition par la Gateway API (Gateway "apps", cf. gateway/00-gateway.yaml).
+# hostname est défini par environnement : <app>-<env>.apps.<IP>.sslip.io
+httpRoute:
+  enabled: true
+  hostname: ""
+  gateway:
+    name: apps
+    namespace: gateway
+    sectionName: http
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+podLabels: {}
+podAnnotations: {}
+
+# PSA "restricted" : obligatoire, sinon le Pod est refusé par l'API.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  runAsGroup: 101
+  fsGroup: 101
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+nodeSelector: {}
+tolerations: []

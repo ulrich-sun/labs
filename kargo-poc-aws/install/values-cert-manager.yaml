@@ -1,0 +1,5 @@
+# cert-manager (chart jetstack/cert-manager) : Kargo s'en sert pour les
+# certificats auto-signés de ses webhooks.
+# Les securityContext par défaut du chart respectent déjà la PSA "restricted".
+crds:
+  enabled: true
