@@ -1,0 +1,21 @@
+# Authentification HTTP basique devant l'UI Argo Workflows.
+# Argo Workflows tourne SANS authentification (authModes: server) : exposé à
+# Internet, n'importe qui pourrait approuver une mise en prod. Ce Middleware
+# Traefik, branché sur la HTTPRoute argo-workflows (filtre ExtensionRef),
+# demande un identifiant AVANT d'atteindre l'UI.
+# Kargo appelle l'API d'Argo Workflows par le Service interne
+# (argo-workflows-server.argo.svc), sans passer par la Gateway : non concerné.
+#
+# Le Secret n'est PAS dans Git. Le créer sur la VM :
+#   WF_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | head -c 20)
+#   kubectl -n argo create secret generic workflows-basic-auth \
+#     --from-literal=users="$(htpasswd -nbB admin "$WF_PASSWORD")"
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: workflows-auth
+  namespace: argo
+spec:
+  basicAuth:
+    secret: workflows-basic-auth
+    realm: argo-workflows

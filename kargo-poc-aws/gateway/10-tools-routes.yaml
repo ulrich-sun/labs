@@ -1,6 +1,7 @@
 # HTTPRoutes des interfaces d'outillage.
 # ⚠️ Argo Workflows est SANS authentification (cf. install/values-argo-workflows.yaml) :
-#    la protection repose sur le security group (80/443 limités à ton IP).
+#    sa route passe par une authentification basique (20-workflows-auth.yaml).
+#    Kargo et Argo CD ont leur propre compte admin.
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -49,6 +50,13 @@ spec:
   hostnames:
     - workflows.apps.54.162.203.26.sslip.io
   rules:
-    - backendRefs:
+    - filters:
+        # identifiant demandé avant l'UI (cf. 20-workflows-auth.yaml)
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: workflows-auth
+      backendRefs:
         - name: argo-workflows-server
           port: 2746

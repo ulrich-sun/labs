@@ -32,7 +32,7 @@ variable "allowed_ssh_cidr" {
 }
 
 variable "allowed_http_cidr" {
-  description = "Adresses autorisées sur 80/443 (Gateway). Vide = allowed_ssh_cidr. Argo Workflows est sans authentification : ne pas ouvrir à 0.0.0.0/0"
+  description = "Adresses autorisées sur 80/443 (Gateway). Vide = allowed_ssh_cidr. 0.0.0.0/0 = public, seulement après l'authentification basique d'Argo Workflows (gateway/20-workflows-auth.yaml)"
   type        = string
   default     = null
 }

@@ -3,4 +3,5 @@ region              = "us-east-1"
 instance_type       = "t3.medium"
 ssh_public_key_path = "~/.ssh/id_ed25519.pub"
 allowed_ssh_cidr    = "203.0.113.10/32" # TON IP publique /32
-# allowed_http_cidr = "203.0.113.10/32" # 80/443 (Gateway) ; par défaut = allowed_ssh_cidr
+# allowed_http_cidr = "0.0.0.0/0"       # 80/443 (Gateway) ; par défaut = allowed_ssh_cidr
+#                                        # public : seulement après gateway/20-workflows-auth.yaml

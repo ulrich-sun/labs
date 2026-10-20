@@ -13,7 +13,8 @@ Promotion d'Excalidraw entre trois **namespaces** d'un cluster k3s sur une VM EC
   l'étape native `http`.
 - Interfaces exposées par la **Gateway API** (Traefik de k3s + `HTTPRoute`) sur
   `http://<app>.apps.<IP>.sslip.io` (ex. `http://kargo.apps.54.162.203.26.sslip.io`) :
-  aucun DNS à gérer. Ports 22, 80 et 443 ouverts **uniquement depuis ton IP**.
+  aucun DNS à gérer. Ports 80 et 443 ouverts selon `allowed_http_cidr` (ton IP par défaut,
+  `0.0.0.0/0` pour un accès public) ; SSH (22) **uniquement depuis ton IP**.
 
 ## Contenu
 
@@ -340,6 +341,11 @@ user-data). Sur la VM :
 
 ```bash
 kubectl get gatewayclass traefik                 # ACCEPTED True
+# Identifiant de l'UI Argo Workflows (elle n'a pas d'authentification propre)
+WF_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | head -c 20)
+echo "Mot de passe Argo Workflows (admin) : $WF_PASSWORD"     # NOTE-LE
+kubectl -n argo create secret generic workflows-basic-auth \
+  --from-literal=users="$(htpasswd -nbB admin "$WF_PASSWORD")"
 kubectl apply -f gateway/
 kubectl wait -n gateway gateway/apps --for=condition=Programmed --timeout=120s
 kubectl get httproute -A
@@ -356,10 +362,15 @@ Sur ton poste (`terraform output urls`) :
 |---|---|---|
 | Kargo | http://kargo.apps.&lt;IP&gt;.sslip.io | `admin` / mot de passe de l'étape 5 |
 | Argo CD | http://argocd.apps.&lt;IP&gt;.sslip.io | `admin` / mot de passe affiché ci-dessus |
-| Argo Workflows | http://workflows.apps.&lt;IP&gt;.sslip.io | aucune (POC : protégé seulement par le security group) |
+| Argo Workflows | http://workflows.apps.&lt;IP&gt;.sslip.io/workflows/excalidraw-gates | `admin` / `WF_PASSWORD` (authentification basique Traefik) |
 
-❌ Délai d'attente dépassé → ton IP a changé : `allowed_ssh_cidr` dans `terraform.tfvars`, puis
-`terraform apply` (seul le security group est modifié).
+**Accès public** : `allowed_http_cidr = "0.0.0.0/0"` dans `terraform.tfvars`, puis
+`terraform apply` (seul le security group change). Ne le faire **qu'après** avoir créé
+`workflows-basic-auth` : sans lui, n'importe qui pourrait approuver une mise en prod.
+
+❌ Délai d'attente dépassé → ton IP a changé : `allowed_ssh_cidr` (et `allowed_http_cidr` s'il
+n'est pas public) dans `terraform.tfvars`, puis `terraform apply` (seul le security group change).
+❌ `401` sur Argo Workflows → identifiant demandé par Traefik : `admin` / `WF_PASSWORD`.
 ❌ `404 page not found` (réponse de Traefik) → hostname absent des HTTPRoutes :
 `kubectl get httproute -A -o yaml | grep -A3 'hostnames\|conditions'`.
 
@@ -498,9 +509,10 @@ kubectl get workflows -n excalidraw-gates
 
 ## Étape 13 — Limites connues
 
-- Interfaces en **HTTP** (pas de TLS) et Argo Workflows exposé **sans authentification** :
-  protégés seulement par le security group (80/443 limités à ton IP). Ne pas ouvrir
-  `allowed_http_cidr` à `0.0.0.0/0` dans cet état.
+- Interfaces en **HTTP** (pas de TLS) : en accès public, les mots de passe (Kargo, Argo CD,
+  Argo Workflows) circulent en clair. Cible : HTTPS sur la Gateway (cert-manager + Let's Encrypt).
+- L'UI Argo Workflows n'est protégée que par une authentification basique devant la Gateway
+  (un identifiant partagé).
 - Argo Workflows sans authentification :
   `approver` est déclaratif. Cible : `server.authModes: [sso]` + RBAC qui limite le *Resume*, et
   Kargo qui appelle l'API avec un jeton (en-tête `Authorization` des étapes `http`).
