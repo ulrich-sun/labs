@@ -172,8 +172,9 @@ metadata:
 spec:
   vars:
     - name: workflowTemplate
+    # Obligatoire : Kargo traite une valeur vide ("") comme ABSENTE et refuse
+    # la promotion ("missing value for variable"). Chaque Stage la fournit.
     - name: checkUrl
-      value: ""
     - name: imageRepo
       value: docker.io/excalidraw/excalidraw
     - name: argoServer

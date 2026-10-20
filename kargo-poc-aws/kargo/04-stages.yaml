@@ -124,6 +124,9 @@ spec:
           vars:
             - name: workflowTemplate
               value: custom-release-record
+            # environnement qui vient d'être déployé (checkUrl est obligatoire)
+            - name: checkUrl
+              value: http://excalidraw.excalidraw-prod.svc.cluster.local
   verification:
     analysisTemplates:
       - name: smoke-test
