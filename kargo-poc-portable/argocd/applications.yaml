@@ -1,0 +1,99 @@
+# Une Application Argo CD par environnement. Chacune suit la branche
+# "stage/<env>", qui contient les manifests DÉJÀ RENDUS par Kargo.
+# - Pas de syncPolicy.automated : Kargo (step argocd-update) déclenche le sync
+#   sur le commit exact qu'il vient de pousser.
+# - L'annotation kargo.akuity.io/authorized-stage est OBLIGATOIRE : sans elle,
+#   Kargo refuse de piloter l'Application.
+# - Les namespaces sont créés avec des labels PSA "restricted" explicites
+#   (redondants avec le défaut du cluster, mais visibles).
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: excalidraw-poc
+  namespace: __ARGOCD_NAMESPACE__
+spec:
+  description: POC Kargo - Excalidraw
+  sourceRepos:
+    - __GITOPS_REPO__
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: excalidraw-*
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-dev
+  namespace: __ARGOCD_NAMESPACE__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:dev
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/dev
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: excalidraw-dev
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: dev
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-staging
+  namespace: __ARGOCD_NAMESPACE__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:staging
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/staging
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: excalidraw-staging
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: staging
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-prod
+  namespace: __ARGOCD_NAMESPACE__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:prod
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/prod
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: excalidraw-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: prod
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/warn: restricted

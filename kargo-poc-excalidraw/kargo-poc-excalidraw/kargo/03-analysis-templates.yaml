@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Vérification post-déploiement : smoke test HTTP (CRD Argo Rollouts, exécutée
+# par Kargo après chaque promotion). Une Freight dont la vérification échoue
+# n'est pas "vérifiée" et ne peut pas descendre vers l'environnement suivant.
+#
+# Pas de scan d'image ici : JFrog Xray scanne déjà les images du registre.
+#
+# Les expressions de ce fichier utilisent {{ args.x }} (syntaxe Argo Rollouts),
+# PAS ${{ }} (syntaxe Kargo).
+# ---------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: smoke-test
+  namespace: excalidraw-poc
+spec:
+  args:
+    - name: url
+  metrics:
+    - name: http-200-and-content
+      count: 3
+      interval: 10s
+      failureLimit: 0
+      provider:
+        job:
+          spec:
+            backoffLimit: 0
+            template:
+              spec:
+                restartPolicy: Never
+                imagePullSecrets:
+                  - name: jfrog-pull
+                containers:
+                  - name: curl
+                    image: __TOOLS_IMAGE__
+                    command: ["sh", "-c"]
+                    args:
+                      - |
+                        set -e
+                        echo "Smoke test sur {{ args.url }}"
+                        body=$(curl -fsS --max-time 10 "{{ args.url }}")
+                        echo "$body" | grep -qi "excalidraw"
+                        echo "OK : page servie et contenu attendu présent"

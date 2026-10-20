@@ -1,0 +1,16 @@
+# Valeurs de l'environnement "staging" (namespace excalidraw-staging).
+# Surchargent charts/excalidraw/values.yaml.
+#
+# ⚠️ image.tag et image.digest sont RÉÉCRITS par Kargo à chaque promotion
+#    (résultat visible sur la branche stage/staging). Ne pas supprimer ces clés.
+image:
+  tag: latest
+  digest: ""
+
+replicaCount: 1
+
+podLabels:
+  env: staging
+
+httpRoute:
+  hostname: excalidraw-staging.__APPS_DOMAIN__

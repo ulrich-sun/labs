@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Le Warehouse crée une "Freight" (lot versionné promu d'un environnement à
+# l'autre) dès qu'un des deux artefacts surveillés change :
+#
+#  1. L'IMAGE Excalidraw officielle (via JFrog), sans aucun build.
+#     Docker Hub ne publie que "latest" (mis à jour en mai 2026) et d'anciens
+#     tags "sha-xxxxxxx" (2021) : pas de numéro de version. On autorise donc
+#     une courte liste de tags et Kargo retient le plus récemment construit
+#     (NewestBuild). Le digest est enregistré : même "latest", la Freight est
+#     immuable.
+#     -> Démo "nouvelle version" : modifier allowTagsRegexes (cf. README).
+#
+#  2. La CONFIGURATION (chart + values) sur la branche main du dépôt Azure.
+#     Tout commit dans charts/ ou env/ crée une Freight : une modification de
+#     values (réplicas, ressources, HTTPRoute...) se promeut comme une version.
+# ---------------------------------------------------------------------------
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Warehouse
+metadata:
+  name: excalidraw
+  namespace: excalidraw-poc
+spec:
+  interval: 2m
+  subscriptions:
+    - name: excalidraw-image
+      image:
+        repoURL: __EXCALIDRAW_IMAGE__
+        imageSelectionStrategy: NewestBuild
+        # Garder cette liste COURTE : NewestBuild lit les métadonnées de chaque tag.
+        allowTagsRegexes:
+          - ^latest$
+          - ^sha-4bfc5bb$
+          - ^sha-2b29b9a$
+          - ^sha-cc201a6$
+        discoveryLimit: 5
+    - name: excalidraw-config
+      git:
+        repoURL: __GITOPS_REPO__
+        branch: main
+        includePaths:
+          - charts
+          - env

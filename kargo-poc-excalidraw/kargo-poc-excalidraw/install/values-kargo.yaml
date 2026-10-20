@@ -1,0 +1,34 @@
+# Values Helm de Kargo (chart oci://ghcr.io/akuity/kargo-charts/kargo).
+# Le mot de passe admin et la clé de signature sont passés en --set à
+# l'installation (jamais écrits dans Git).
+
+image:
+  # Image Kargo via le dépôt remote JFrog qui proxifie ghcr.io
+  repository: __JFROG_GHCR__/akuity/kargo
+  # tag: vide = version du chart
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: jfrog-pull
+
+api:
+  # Nom DNS public de l'UI/API Kargo (exposée par HTTPRoute, install/httproutes.yaml)
+  host: __KARGO_HOST__
+  tls:
+    # Le HTTPS est assuré par la Gateway : Kargo sert en HTTP (service kargo-api, port 80)
+    enabled: false
+    # ... mais sait qu'il est vu en HTTPS de l'extérieur (URLs générées en https://)
+    terminatedUpstream: true
+  adminAccount:
+    enabled: true
+    tokenTTL: 24h
+
+controller:
+  argocd:
+    # Namespace de ton Argo CD existant
+    namespace: __ARGOCD_NS__
+  rollouts:
+    # Vérifications post-déploiement (CRD AnalysisTemplate d'Argo Rollouts)
+    integrationEnabled: true
+
+# cert-manager est déjà installé : Kargo s'en sert pour le certificat
+# auto-signé de ses webhooks internes (valeurs par défaut du chart).

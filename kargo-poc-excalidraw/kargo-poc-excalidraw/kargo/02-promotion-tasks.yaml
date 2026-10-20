@@ -1,0 +1,277 @@
+# ---------------------------------------------------------------------------
+# PromotionTasks = séquences d'étapes réutilisables (Kargo open source).
+# Dans une tâche, la sortie d'un step précédent se lit via task.outputs['<alias>'].
+# ---------------------------------------------------------------------------
+---
+# Tâche 1 : rendu Helm de l'environnement -> branche stage/<env> -> sync Argo CD
+#  - checkout de main au COMMIT exact de la Freight (config promue telle quelle)
+#  - écriture du tag ET du digest de l'image de la Freight dans env/<env>/values.yaml
+#  - helm template (values du chart + values de l'environnement)
+#  - commit des manifests rendus + des values effectives sur stage/<env>
+apiVersion: kargo.akuity.io/v1alpha1
+kind: PromotionTask
+metadata:
+  name: render-and-sync
+  namespace: excalidraw-poc
+spec:
+  vars:
+    - name: gitopsRepo
+    - name: imageRepo
+  steps:
+    - uses: git-clone
+      config:
+        repoURL: ${{ vars.gitopsRepo }}
+        checkout:
+          - commit: ${{ commitFrom(vars.gitopsRepo).ID }}
+            path: ./src
+          - branch: stage/${{ ctx.stage }}
+            create: true
+            path: ./out
+    - uses: git-clear
+      config:
+        path: ./out
+    - uses: yaml-update
+      as: set-image
+      config:
+        path: ./src/env/${{ ctx.stage }}/values.yaml
+        updates:
+          - key: image.tag
+            value: ${{ imageFrom(vars.imageRepo).Tag }}
+          - key: image.digest
+            value: ${{ imageFrom(vars.imageRepo).Digest }}
+    - uses: helm-template
+      config:
+        path: ./src/charts/excalidraw
+        releaseName: excalidraw
+        namespace: excalidraw-${{ ctx.stage }}
+        valuesFiles:
+          - ./src/env/${{ ctx.stage }}/values.yaml
+        outPath: ./out/manifests.yaml
+    # Garde une copie lisible des values effectives à côté des manifests
+    - uses: copy
+      config:
+        inPath: ./src/env/${{ ctx.stage }}/values.yaml
+        outPath: ./out/values-effectives.yaml
+    - uses: git-commit
+      as: commit
+      config:
+        path: ./out
+        message: "${{ ctx.stage }} : Excalidraw ${{ imageFrom(vars.imageRepo).Tag }}"
+    - uses: git-push
+      config:
+        path: ./out
+        targetBranch: stage/${{ ctx.stage }}
+    - uses: argocd-update
+      config:
+        apps:
+          - name: excalidraw-${{ ctx.stage }}
+            namespace: __ARGOCD_NS__
+            sources:
+              - repoURL: ${{ vars.gitopsRepo }}
+                desiredRevision: ${{ task.outputs.commit.commit }}
+---
+# Tâche 2 (variante) : même rendu, mais la mise en prod passe par une Pull
+# Request Azure DevOps ; Kargo attend son merge (git-wait-for-pr).
+# Combinée à une politique de branche sur stage/prod (relecteurs obligatoires),
+# c'est une approbation par revue Git.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: PromotionTask
+metadata:
+  name: render-pr-and-sync
+  namespace: excalidraw-poc
+spec:
+  vars:
+    - name: gitopsRepo
+    - name: imageRepo
+  steps:
+    - uses: git-clone
+      config:
+        repoURL: ${{ vars.gitopsRepo }}
+        checkout:
+          - commit: ${{ commitFrom(vars.gitopsRepo).ID }}
+            path: ./src
+          - branch: stage/${{ ctx.stage }}
+            path: ./out          # la branche cible doit exister
+    - uses: git-clear
+      config:
+        path: ./out
+    - uses: yaml-update
+      config:
+        path: ./src/env/${{ ctx.stage }}/values.yaml
+        updates:
+          - key: image.tag
+            value: ${{ imageFrom(vars.imageRepo).Tag }}
+          - key: image.digest
+            value: ${{ imageFrom(vars.imageRepo).Digest }}
+    - uses: helm-template
+      config:
+        path: ./src/charts/excalidraw
+        releaseName: excalidraw
+        namespace: excalidraw-${{ ctx.stage }}
+        valuesFiles:
+          - ./src/env/${{ ctx.stage }}/values.yaml
+        outPath: ./out/manifests.yaml
+    - uses: copy
+      config:
+        inPath: ./src/env/${{ ctx.stage }}/values.yaml
+        outPath: ./out/values-effectives.yaml
+    - uses: git-commit
+      config:
+        path: ./out
+        message: "${{ ctx.stage }} : Excalidraw ${{ imageFrom(vars.imageRepo).Tag }}"
+    - uses: git-push
+      as: push
+      config:
+        path: ./out
+        generateTargetBranch: true   # -> kargo/promotion/<nom-de-la-promotion>
+    - uses: git-open-pr
+      as: open-pr
+      config:
+        repoURL: ${{ vars.gitopsRepo }}
+        provider: azure
+        sourceBranch: ${{ task.outputs.push.branch }}
+        targetBranch: stage/${{ ctx.stage }}
+        title: "[Kargo] Excalidraw ${{ imageFrom(vars.imageRepo).Tag }} -> ${{ ctx.stage }}"
+    - uses: git-wait-for-pr
+      as: wait-pr
+      config:
+        repoURL: ${{ vars.gitopsRepo }}
+        provider: azure
+        prNumber: ${{ task.outputs['open-pr'].pr.id }}
+    - uses: argocd-update
+      config:
+        apps:
+          - name: excalidraw-${{ ctx.stage }}
+            namespace: __ARGOCD_NS__
+            sources:
+              - repoURL: ${{ vars.gitopsRepo }}
+                desiredRevision: ${{ task.outputs['wait-pr'].commit }}
+---
+# CUSTOM STEP générique : soumet le WorkflowTemplate `workflowTemplate` à Argo
+# Workflows avec le contexte de la promotion, puis interroge le workflow
+# jusqu'à Succeeded (étape réussie) ou Failed/Error (promotion en échec).
+# Tant qu'aucune des deux expressions n'est vraie, Kargo garde l'étape "Running".
+apiVersion: kargo.akuity.io/v1alpha1
+kind: PromotionTask
+metadata:
+  name: custom-step
+  namespace: excalidraw-poc
+spec:
+  vars:
+    - name: workflowTemplate
+    # Obligatoire : Kargo traite une valeur vide ("") comme ABSENTE et refuse
+    # la promotion ("missing value for variable"). Chaque Stage la fournit.
+    - name: checkUrl
+    - name: imageRepo
+      value: __EXCALIDRAW_IMAGE__
+    - name: argoServer
+      value: http://argo-workflows-server.argo.svc:2746
+  steps:
+    - uses: http
+      as: submit
+      config:
+        method: POST
+        url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/submit
+        headers:
+          - name: Content-Type
+            value: application/json
+        # Le corps JSON DOIT passer par quote() (le champ body attend une chaîne).
+        body: |
+          ${{ quote({
+            "namespace": "excalidraw-gates",
+            "resourceKind": "WorkflowTemplate",
+            "resourceName": vars.workflowTemplate,
+            "submitOptions": {
+              "generateName": vars.workflowTemplate + "-" + ctx.stage + "-",
+              "labels": "kargo-stage=" + ctx.stage + ",kargo-freight=" + ctx.targetFreight.alias,
+              "parameters": [
+                "image=" + imageFrom(vars.imageRepo).RepoURL + ":" + imageFrom(vars.imageRepo).Tag + "@" + imageFrom(vars.imageRepo).Digest,
+                "stage=" + ctx.stage,
+                "freight=" + ctx.targetFreight.alias,
+                "actor=" + (ctx.meta.promotion.actor ?? "auto"),
+                "promotion=" + ctx.promotion,
+                "check-url=" + vars.checkUrl
+              ]
+            }
+          }) }}
+        successExpression: response.status == 200
+        failureExpression: response.status >= 400
+        outputs:
+          - name: workflow
+            fromExpression: response.body.metadata.name
+    - uses: http
+      as: wait
+      retry:
+        timeout: 15m          # aligné sur activeDeadlineSeconds des custom steps
+        errorThreshold: 5     # erreurs passagères tolérées (API Argo lente, redémarrage)
+      config:
+        method: GET
+        timeout: 30s          # délai par requête (10 s par défaut)
+        url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/${{ task.outputs.submit.workflow }}
+        pollInterval: 15s
+        # `?.` : juste après sa création, le workflow n'a pas encore de status.
+        successExpression: response.status == 200 && response.body?.status?.phase == 'Succeeded'
+        failureExpression: response.status == 404 || (response.status == 200 && response.body?.status?.phase in ['Failed', 'Error'])
+        errorExpression: "'workflow ${{ task.outputs.submit.workflow }} : ' + (response.body?.status?.message ?? 'échec')"
+---
+# WAIT-FOR-APPROVAL : même mécanique, sur le WorkflowTemplate approval-gate,
+# avec une attente longue (8 h) pour laisser le temps à un humain de répondre.
+# Ignorée pour une promotion marquée "rollback" (restaurer vite).
+apiVersion: kargo.akuity.io/v1alpha1
+kind: PromotionTask
+metadata:
+  name: wait-for-approval
+  namespace: excalidraw-poc
+spec:
+  vars:
+    - name: imageRepo
+      value: __EXCALIDRAW_IMAGE__
+    - name: argoServer
+      value: http://argo-workflows-server.argo.svc:2746
+  steps:
+    - uses: http
+      as: submit
+      if: ${{ !ctx.meta.promotion.rollback }}
+      config:
+        method: POST
+        url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/submit
+        headers:
+          - name: Content-Type
+            value: application/json
+        body: |
+          ${{ quote({
+            "namespace": "excalidraw-gates",
+            "resourceKind": "WorkflowTemplate",
+            "resourceName": "approval-gate",
+            "submitOptions": {
+              "generateName": "approval-" + ctx.stage + "-",
+              "labels": "kargo-stage=" + ctx.stage + ",kargo-freight=" + ctx.targetFreight.alias,
+              "parameters": [
+                "image=" + imageFrom(vars.imageRepo).RepoURL + ":" + imageFrom(vars.imageRepo).Tag + "@" + imageFrom(vars.imageRepo).Digest,
+                "stage=" + ctx.stage,
+                "freight=" + ctx.targetFreight.alias,
+                "actor=" + (ctx.meta.promotion.actor ?? "auto"),
+                "promotion=" + ctx.promotion,
+                "check-url="
+              ]
+            }
+          }) }}
+        successExpression: response.status == 200
+        failureExpression: response.status >= 400
+        outputs:
+          - name: workflow
+            fromExpression: response.body.metadata.name
+    - uses: http
+      as: wait
+      if: ${{ !ctx.meta.promotion.rollback }}
+      retry:
+        timeout: 8h           # aligné sur activeDeadlineSeconds d'approval-gate
+        errorThreshold: 5     # erreurs passagères tolérées (API Argo lente, redémarrage)
+      config:
+        method: GET
+        timeout: 30s          # délai par requête (10 s par défaut)
+        url: ${{ vars.argoServer }}/api/v1/workflows/excalidraw-gates/${{ task.outputs.submit.workflow }}
+        pollInterval: 20s
+        successExpression: response.status == 200 && response.body?.status?.phase == 'Succeeded'
+        failureExpression: response.status == 404 || (response.status == 200 && response.body?.status?.phase in ['Failed', 'Error'])
+        errorExpression: "'approbation refusée ou expirée (workflow ${{ task.outputs.submit.workflow }})'"

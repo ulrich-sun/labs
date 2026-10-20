@@ -1,0 +1,78 @@
+# ---------------------------------------------------------------------------
+# CUSTOM STEP "pré-contrôles" — logique libre dans des conteneurs, exécutée
+# PENDANT la promotion Kargo, AVANT tout déploiement.
+# Équivalent open source d'un CustomPromotionStep (Akuity Platform).
+#
+# Deux contrôles en parallèle :
+#  - smoke     : l'environnement précédent répond et sert bien Excalidraw ;
+#  - policy    : l'image vient du registre autorisé et est épinglée par digest.
+# Un échec => workflow Failed => la promotion Kargo échoue, rien n'est déployé.
+# ---------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: custom-precheck
+  namespace: excalidraw-gates
+spec:
+  serviceAccountName: argo-workflow
+  imagePullSecrets:
+    - name: jfrog-pull
+  entrypoint: main
+  activeDeadlineSeconds: 900
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  arguments:
+    parameters:
+      - name: image
+      - name: stage
+      - name: freight
+      - name: actor
+      - name: promotion
+      - name: check-url
+        value: ""
+  templates:
+    - name: main
+      steps:
+        - - name: smoke
+            template: smoke
+          - name: policy
+            template: policy
+
+    - name: smoke
+      retryStrategy:
+        limit: "2"
+      container:
+        image: __TOOLS_IMAGE__
+        securityContext: &sc
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            URL="{{workflow.parameters.check-url}}"
+            if [ -z "$URL" ]; then echo "pas d'URL à tester : contrôle ignoré"; exit 0; fi
+            echo "Freight {{workflow.parameters.freight}} -> {{workflow.parameters.stage}}"
+            echo "Test de $URL"
+            curl -fsS --max-time 10 "$URL" | grep -qi excalidraw
+            echo "OK : l'environnement précédent sert Excalidraw"
+
+    - name: policy
+      container:
+        image: __TOOLS_IMAGE__
+        securityContext: *sc
+        command: [sh, -c]
+        args:
+          - |
+            IMAGE="{{workflow.parameters.image}}"
+            echo "Image candidate : $IMAGE"
+            case "$IMAGE" in
+              __EXCALIDRAW_IMAGE__:*) echo "OK : registre autorisé (JFrog)" ;;
+              *) echo "REFUS : registre non autorisé"; exit 1 ;;
+            esac
+            case "$IMAGE" in
+              *@sha256:*) echo "OK : image épinglée par digest" ;;
+              *) echo "REFUS : image non épinglée par digest"; exit 1 ;;
+            esac

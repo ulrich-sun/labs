@@ -1,0 +1,54 @@
+# Valeurs PAR DÉFAUT, communes à tous les environnements.
+# Chaque environnement les surcharge dans env/<env>/values.yaml.
+
+image:
+  # Image officielle Excalidraw, tirée via le dépôt "remote" Docker Hub de JFrog.
+  repository: __EXCALIDRAW_IMAGE__
+  # tag et digest sont écrits par Kargo à chaque promotion (env/<env>/values.yaml).
+  tag: latest
+  # Si renseigné, l'image est tirée par digest (immuable) : repo:tag@sha256:...
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: jfrog-pull
+
+replicaCount: 1
+
+containerPort: 80
+
+service:
+  type: ClusterIP
+  port: 80
+
+# Exposition via la Gateway API (HTTPRoute). Désactivée par défaut :
+# la POC fonctionne aussi par port-forward.
+httpRoute:
+  enabled: false
+  # Gateway existante à laquelle s'attacher
+  parentRefs:
+    - name: __GATEWAY_NAME__
+      namespace: __GATEWAY_NAMESPACE__
+      # sectionName: https      # listener précis, si besoin
+  hostnames: []
+  pathPrefix: /
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+podLabels: {}
+podAnnotations: {}
+
+# Sécurité : l'image officielle tourne avec nginx en root sur le port 80 ;
+# un securityContext restrictif (runAsNonRoot) l'empêcherait de démarrer.
+podSecurityContext: {}
+securityContext: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

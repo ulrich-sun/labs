@@ -1,0 +1,16 @@
+# Valeurs de l'environnement "prod" (namespace excalidraw-prod).
+# Surchargent charts/excalidraw/values.yaml.
+#
+# ⚠️ image.tag et image.digest sont RÉÉCRITS par Kargo à chaque promotion
+#    (résultat visible sur la branche stage/prod). Ne pas supprimer ces clés.
+image:
+  tag: latest
+  digest: ""
+
+replicaCount: 2
+
+podLabels:
+  env: prod
+
+httpRoute:
+  hostname: excalidraw-prod.__APPS_DOMAIN__

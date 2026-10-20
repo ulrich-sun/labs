@@ -1,0 +1,136 @@
+# ---------------------------------------------------------------------------
+# Pipeline : Warehouse -> dev -> staging -> prod (un namespace par environnement)
+#
+# Pile d'étapes de promotion de chaque Stage :
+#
+#   dev      render-and-sync                                   (auto)
+#   staging  render-and-sync                                   (auto, rollback auto)
+#   prod     custom-step(precheck) -> wait-for-approval
+#            -> render-and-sync -> custom-step(release-record) (manuel)
+#
+# custom-step et wait-for-approval lancent des WorkflowTemplates Argo Workflows
+# (argo-workflows/) : équivalent open source des custom steps et du
+# wait-for-approval de Kargo Enterprise.
+# Chaque brique a un alias (`as`) : c'est le nom affiché dans l'UI Kargo.
+# ---------------------------------------------------------------------------
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: dev
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        direct: true                     # reçoit directement chaque nouvelle Freight
+  promotionTemplate:
+    spec:
+      steps:
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: __GITOPS_REPO__
+            - name: imageRepo
+              value: __EXCALIDRAW_IMAGE__
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-dev.svc.cluster.local
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: staging
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        stages:
+          - dev                          # uniquement ce qui a été VÉRIFIÉ en dev
+  promotionTemplate:
+    spec:
+      steps:
+        # Pas de pré-contrôle ici : il testerait dev, et bloquerait la démo de
+        # rollback automatique (scénario 5 du README).
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: __GITOPS_REPO__
+            - name: imageRepo
+              value: __EXCALIDRAW_IMAGE__
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-staging.svc.cluster.local
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Stage
+metadata:
+  name: prod
+  namespace: excalidraw-poc
+spec:
+  requestedFreight:
+    - origin:
+        kind: Warehouse
+        name: excalidraw
+      sources:
+        stages:
+          - staging
+        requiredSoakTime: 10m            # la version doit "mûrir" 10 min en staging
+  promotionTemplate:
+    spec:
+      steps:
+        # 1. CUSTOM STEP : staging sert bien cette version + politique d'image
+        - task:
+            name: custom-step
+          as: precheck
+          vars:
+            - name: workflowTemplate
+              value: custom-precheck
+            - name: checkUrl
+              value: http://excalidraw.excalidraw-staging.svc.cluster.local
+        # 2. WAIT-FOR-APPROVAL : pause jusqu'à la décision humaine
+        #    (UI Argo Workflows). Sautée lors d'un rollback.
+        - task:
+            name: wait-for-approval
+          as: approval
+        # 3. Déploiement. Variante : `render-pr-and-sync` pour exiger EN PLUS
+        #    une Pull Request Azure DevOps approuvée.
+        - task:
+            name: render-and-sync
+          as: deploy
+          vars:
+            - name: gitopsRepo
+              value: __GITOPS_REPO__
+            - name: imageRepo
+              value: __EXCALIDRAW_IMAGE__
+        # 4. CUSTOM STEP post-déploiement : trace de la mise en production
+        - task:
+            name: custom-step
+          as: release-record
+          vars:
+            - name: workflowTemplate
+              value: custom-release-record
+            # environnement qui vient d'être déployé (checkUrl est obligatoire)
+            - name: checkUrl
+              value: http://excalidraw.excalidraw-prod.svc.cluster.local
+  verification:
+    analysisTemplates:
+      - name: smoke-test
+    args:
+      - name: url
+        value: http://excalidraw.excalidraw-prod.svc.cluster.local

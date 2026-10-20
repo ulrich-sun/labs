@@ -1,0 +1,56 @@
+# ---------------------------------------------------------------------------
+# CUSTOM STEP "registre des mises en production" — exécuté APRÈS le
+# déploiement (argocd-update a attendu que l'Application soit Healthy).
+# Écrit une ConfigMap de trace dans excalidraw-gates :
+#   kubectl get cm -n excalidraw-gates -l poc/release-record=true
+# Remplaçable par : ticket ITSM, message Teams/Slack, changelog Git...
+# Le droit d'écrire des ConfigMaps vient de argo-workflows/rbac.yaml.
+# ---------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: custom-release-record
+  namespace: excalidraw-gates
+spec:
+  serviceAccountName: argo-workflow
+  imagePullSecrets:
+    - name: jfrog-pull
+  entrypoint: record
+  activeDeadlineSeconds: 300
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  arguments:
+    parameters:
+      - name: image
+      - name: stage
+      - name: freight
+      - name: actor
+      - name: promotion
+      - name: check-url
+        value: ""
+  templates:
+    - name: record
+      container:
+        image: __TOOLS_IMAGE__
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            SA=/var/run/secrets/kubernetes.io/serviceaccount
+            NAME="release-{{workflow.parameters.stage}}-$(date +%Y%m%d-%H%M%S)"
+            BODY=$(printf '{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"%s","labels":{"poc/release-record":"true","stage":"%s"}},"data":{"stage":"%s","freight":"%s","image":"%s","actor":"%s","promotion":"%s","date":"%s"}}' \
+              "$NAME" "{{workflow.parameters.stage}}" "{{workflow.parameters.stage}}" \
+              "{{workflow.parameters.freight}}" "{{workflow.parameters.image}}" \
+              "{{workflow.parameters.actor}}" "{{workflow.parameters.promotion}}" \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+            curl -fsS --cacert "$SA/ca.crt" \
+              -H "Authorization: Bearer $(cat $SA/token)" \
+              -H "Content-Type: application/json" \
+              -X POST "https://kubernetes.default.svc/api/v1/namespaces/excalidraw-gates/configmaps" \
+              -d "$BODY" > /dev/null
+            echo "Trace enregistrée : configmap/$NAME"

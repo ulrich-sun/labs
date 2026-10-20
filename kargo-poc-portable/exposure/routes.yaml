@@ -1,0 +1,45 @@
+# HTTPRoutes des interfaces Kargo et Argo Workflows, attachées à la Gateway
+# existante du cluster (Traefik). Placeholders renseignés par configure.sh.
+# Argo CD est supposé déjà exposé : pas de route ici.
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kargo
+  namespace: kargo
+spec:
+  parentRefs:
+    - name: __GATEWAY_NAME__
+      namespace: __GATEWAY_NAMESPACE__
+      sectionName: __GATEWAY_SECTION__
+  hostnames:
+    - kargo.__APPS_DOMAIN__
+  rules:
+    - backendRefs:
+        - name: kargo-api
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: argo-workflows
+  namespace: argo
+spec:
+  parentRefs:
+    - name: __GATEWAY_NAME__
+      namespace: __GATEWAY_NAMESPACE__
+      sectionName: __GATEWAY_SECTION__
+  hostnames:
+    - workflows.__APPS_DOMAIN__
+  rules:
+    - filters:
+        # Argo Workflows n'a pas d'authentification propre (authModes: server) :
+        # identifiant demandé par Traefik avant l'UI (cf. workflows-auth.yaml)
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: workflows-auth
+      backendRefs:
+        - name: argo-workflows-server
+          port: 2746

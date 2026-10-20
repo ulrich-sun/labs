@@ -1,0 +1,28 @@
+# Valeurs de l'environnement "prod" (namespace excalidraw-prod).
+# Surchargent charts/excalidraw/values.yaml. Tout ce qui est ici est personnalisable.
+#
+# ⚠️ image.tag et image.digest sont RÉÉCRITS par Kargo à chaque promotion
+#    (dans la copie de travail ; le résultat est visible sur la branche stage/prod).
+#    Ne pas supprimer ces deux clés : Kargo ne met à jour que des clés existantes.
+image:
+  repository: __EXCALIDRAW_IMAGE__
+  tag: latest
+  digest: ""
+
+replicaCount: 2
+
+httpRoute:
+  enabled: false            # passer à true pour exposer via la Gateway
+  hostnames:
+    - excalidraw.__APP_DOMAIN__
+
+podLabels:
+  env: prod
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi

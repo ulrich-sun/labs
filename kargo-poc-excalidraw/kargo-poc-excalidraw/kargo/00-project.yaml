@@ -1,0 +1,42 @@
+# Projet Kargo = namespace dédié + RBAC par défaut (kargo-admin / kargo-promoter / kargo-viewer)
+---
+apiVersion: kargo.akuity.io/v1alpha1
+kind: Project
+metadata:
+  name: excalidraw-poc
+---
+# ProjectConfig : les règles de gouvernance sont au niveau PROJET (pas Stage),
+# pour qu'un utilisateur qui peut éditer un Stage ne puisse pas s'auto-accorder
+# l'auto-promotion.
+apiVersion: kargo.akuity.io/v1alpha1
+kind: ProjectConfig
+metadata:
+  name: excalidraw-poc        # doit porter le même nom que le Project
+  namespace: excalidraw-poc
+spec:
+  promotionPolicies:
+    # dev : chaque nouvelle Freight (image ou config) est déployée automatiquement
+    - stageSelector:
+        name: dev
+      autoPromotionEnabled: true
+    # staging : auto-promotion dès que la Freight est vérifiée en dev,
+    # + rollback automatique si la vérification échoue (scénario 5 de la démo)
+    - stageSelector:
+        name: staging
+      autoPromotionEnabled: true
+      autoRollback:
+        onVerification:
+          - Failed
+    # prod : JAMAIS d'auto-promotion -> promotion manuelle par un release manager
+    - stageSelector:
+        name: prod
+      autoPromotionEnabled: false
+  # Fenêtre de promotion : la prod n'est promouvable qu'en heures ouvrables (Montréal)
+  promotionWindows:
+    - name: prod-heures-ouvrables
+      kind: Allow
+      stageSelector:
+        name: prod
+      rrule: FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR
+      dtstart: "TZID=America/Toronto:20260105T090000"
+      dtend: "TZID=America/Toronto:20260105T170000"

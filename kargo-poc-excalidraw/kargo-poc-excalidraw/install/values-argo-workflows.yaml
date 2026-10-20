@@ -1,0 +1,40 @@
+# Values Helm d'Argo Workflows (chart argo/argo-workflows).
+# Rôle dans la POC : la porte de mise en production (étapes custom + approbation
+# humaine), que Kargo réserve sinon à son offre payante.
+
+images:
+  pullPolicy: IfNotPresent
+  pullSecrets:
+    - name: jfrog-pull
+
+controller:
+  image:
+    registry: __JFROG_QUAY__          # remote JFrog qui proxifie quay.io
+    repository: argoproj/workflow-controller
+  # Le contrôleur ne gère que les workflows de ce namespace
+  workflowNamespaces:
+    - excalidraw-gates
+
+executor:
+  image:
+    registry: __JFROG_QUAY__
+    repository: argoproj/argoexec
+
+server:
+  image:
+    registry: __JFROG_QUAY__
+    repository: argoproj/argocli
+  # ⚠️ POC UNIQUEMENT : UI sans authentification.
+  # Cible : authModes [sso] (Entra ID) + RBAC, pour que seuls les release
+  # managers puissent cliquer "Resume".
+  authModes:
+    - server
+  secure: false          # HTTP sur 2746 à l'intérieur du cluster
+
+workflow:
+  # ServiceAccount + RBAC utilisés par les pods des workflows
+  serviceAccount:
+    create: true
+    name: argo-workflow
+  rbac:
+    create: true

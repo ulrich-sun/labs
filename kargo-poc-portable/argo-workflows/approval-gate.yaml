@@ -1,0 +1,97 @@
+# ---------------------------------------------------------------------------
+# WAIT-FOR-APPROVAL — la promotion Kargo est EN PAUSE tant qu'un humain n'a pas
+# répondu dans l'UI Argo Workflows.
+# Équivalent open source du step `wait-for-approval` (Akuity Platform, Kargo ≥ 1.12).
+#
+#  1. approval : nœud suspendu ; l'approbateur fait "Resume" et renseigne
+#                approve = YES/NO, son nom et un commentaire ;
+#  2. decision : échoue si NO -> la promotion échoue, la prod reste inchangée.
+# Sans réponse sous 8 h, le workflow expire et la promotion échoue.
+#
+# Deux approbateurs (≈ minApprovals: 2) : dupliquer le couple approval/decision.
+# ---------------------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: approval-gate
+  namespace: excalidraw-gates
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: main
+  activeDeadlineSeconds: 28800
+  ttlStrategy:
+    secondsAfterCompletion: 604800   # garde la trace de la décision 7 jours
+  arguments:
+    parameters:
+      - name: image
+      - name: stage
+      - name: freight
+      - name: actor
+      - name: promotion
+      - name: check-url
+        value: ""
+  templates:
+    - name: main
+      steps:
+        - - name: approval
+            template: approval
+        - - name: decision
+            template: decision
+            arguments:
+              parameters:
+                - name: approve
+                  value: "{{steps.approval.outputs.parameters.approve}}"
+                - name: approver
+                  value: "{{steps.approval.outputs.parameters.approver}}"
+                - name: comment
+                  value: "{{steps.approval.outputs.parameters.comment}}"
+
+    # UI Argo Workflows > workflow > nœud "approval" > RESUME
+    - name: approval
+      suspend: {}
+      inputs:
+        parameters:
+          - name: approve
+            default: "NO"
+            enum: ["YES", "NO"]
+            description: "Approuver la promotion ?"
+          - name: approver
+            default: "inconnu"
+            description: "Ton nom"
+          - name: comment
+            default: "aucun commentaire"
+      outputs:
+        parameters:
+          - name: approve
+            valueFrom:
+              supplied: {}
+          - name: approver
+            valueFrom:
+              supplied: {}
+          - name: comment
+            valueFrom:
+              supplied: {}
+
+    - name: decision
+      inputs:
+        parameters:
+          - name: approve
+          - name: approver
+          - name: comment
+      container:
+        image: docker.io/curlimages/curl:8.10.1
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: [sh, -c]
+        args:
+          - |
+            echo "Promotion   : {{workflow.parameters.promotion}} (lancée par {{workflow.parameters.actor}})"
+            echo "Freight     : {{workflow.parameters.freight}} -> {{workflow.parameters.stage}}"
+            echo "Image       : {{workflow.parameters.image}}"
+            echo "Décision    : {{inputs.parameters.approve}} par {{inputs.parameters.approver}}"
+            echo "Commentaire : {{inputs.parameters.comment}}"
+            test "{{inputs.parameters.approve}}" = "YES" || { echo "REJETÉE"; exit 1; }
+            echo "APPROUVÉE"

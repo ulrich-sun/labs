@@ -1,0 +1,110 @@
+# Applications Argo CD — une par stage.
+# Chaque Application suit la branche "stage/<stage>" qui contient les manifests
+# DÉJÀ RENDUS par Kargo (pattern "rendered manifests" / branche par stage).
+#
+# - Pas de syncPolicy.automated : c'est Kargo (step argocd-update) qui déclenche
+#   le sync sur le commit exact qu'il vient de pousser.
+# - L'annotation kargo.akuity.io/authorized-stage est OBLIGATOIRE : sans elle,
+#   Kargo refuse de modifier l'Application (délégation d'autorité explicite).
+# - ENVIRONNEMENTS = NAMESPACES d'un même cluster : excalidraw-dev / -staging / -prod.
+#   Argo CD crée chaque namespace (CreateNamespace=true) et lui pose ses labels.
+# - destination.server : le cluster qui héberge les 3 namespaces. Par défaut le
+#   cluster d'Argo CD lui-même ; sinon l'URL du cluster downstream Rancher tel
+#   qu'enregistré dans Argo CD (argocd cluster list).
+# - Rattachement à un projet Rancher (droits, quotas gérés dans Rancher) :
+#   décommenter l'annotation field.cattle.io/projectId et y mettre
+#   <id-cluster>:<id-projet>, visible dans l'UI Rancher (ex. c-m-abcd1234:p-xyz12).
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: excalidraw-poc
+  namespace: __ARGOCD_NS__
+spec:
+  description: POC Kargo - Excalidraw
+  sourceRepos:
+    - __GITOPS_REPO__
+  destinations:
+    - server: __DEST_SERVER__
+      namespace: excalidraw-*
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-dev
+  namespace: __ARGOCD_NS__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:dev
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/dev
+    path: .
+  destination:
+    server: __DEST_SERVER__
+    namespace: excalidraw-dev
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: dev
+        app.kubernetes.io/part-of: excalidraw-poc
+      # annotations:
+      #   field.cattle.io/projectId: __RANCHER_PROJECT_ID__
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-staging
+  namespace: __ARGOCD_NS__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:staging
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/staging
+    path: .
+  destination:
+    server: __DEST_SERVER__
+    namespace: excalidraw-staging
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: staging
+        app.kubernetes.io/part-of: excalidraw-poc
+      # annotations:
+      #   field.cattle.io/projectId: __RANCHER_PROJECT_ID__
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: excalidraw-prod
+  namespace: __ARGOCD_NS__
+  annotations:
+    kargo.akuity.io/authorized-stage: excalidraw-poc:prod
+spec:
+  project: excalidraw-poc
+  source:
+    repoURL: __GITOPS_REPO__
+    targetRevision: stage/prod
+    path: .
+  destination:
+    server: __DEST_SERVER__
+    namespace: excalidraw-prod
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        env: prod
+        app.kubernetes.io/part-of: excalidraw-poc
+      # annotations:
+      #   field.cattle.io/projectId: __RANCHER_PROJECT_ID__

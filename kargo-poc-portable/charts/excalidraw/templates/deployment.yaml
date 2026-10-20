@@ -1,0 +1,92 @@
+{{- /*
+L'image officielle excalidraw/excalidraw lance nginx en ROOT sur le port 80 :
+la PSA "restricted" la refuse. Sans rien reconstruire :
+  1. initContainer = image Excalidraw officielle (celle que Kargo promeut),
+     lancée en non-root, qui copie seulement les fichiers statiques ;
+  2. conteneur = image officielle nginx-unprivileged (uid 101, port 8080)
+     qui sert ces fichiers. Système de fichiers en lecture seule.
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "excalidraw.name" . }}
+  labels:
+    {{- include "excalidraw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "excalidraw.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "excalidraw.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: copy-static
+          image: {{ include "excalidraw.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - cp -R {{ .Values.image.contentPath }}/. /static/ && echo "fichiers copiés :" && ls /static | head
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: static
+              mountPath: /static
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      containers:
+        - name: web
+          image: {{ .Values.webServer.image | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.webServer.port }}
+          volumeMounts:
+            - name: static
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: static
+          emptyDir:
+            sizeLimit: 200Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 50Mi
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

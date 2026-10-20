@@ -1,0 +1,18 @@
+# Values Helm d'Argo Rollouts (chart argo/argo-rollouts).
+# Rôle dans la POC : fournir les CRD AnalysisTemplate / AnalysisRun que Kargo
+# utilise pour ses vérifications. Excalidraw n'utilise PAS de Rollout.
+
+installCRDs: true
+
+controller:
+  image:
+    # Image via le dépôt remote JFrog qui proxifie quay.io
+    registry: __JFROG_QUAY__
+    repository: argoproj/argo-rollouts
+    # tag: vide = version du chart
+
+imagePullSecrets:
+  - name: jfrog-pull
+
+dashboard:
+  enabled: false

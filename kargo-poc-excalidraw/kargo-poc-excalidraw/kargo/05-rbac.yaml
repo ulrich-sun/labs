@@ -1,0 +1,112 @@
+# ---------------------------------------------------------------------------
+# RBAC : qui a le droit de promouvoir quoi.
+# Kargo mappe les utilisateurs OIDC (claims) vers des ServiceAccounts du projet,
+# puis applique du RBAC Kubernetes pur, avec un verbe custom : "promote".
+#
+# Remplace les noms de groupes par ceux de ton IdP (Keycloak, Entra ID, Dex...).
+# Sans OIDC configuré, seul le compte admin existe : la démo RBAC nécessite OIDC.
+# ---------------------------------------------------------------------------
+---
+# Développeurs : peuvent promouvoir en dev et staging, voir tout le reste
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: developers
+  namespace: excalidraw-poc
+  annotations:
+    kargo.akuity.io/description: Promotion dev/staging
+    rbac.kargo.akuity.io/claims: '{"groups":["__GROUP_DEVS__"]}'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developers
+  namespace: excalidraw-poc
+rules:
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["promotions"]
+    verbs: ["create", "patch", "update"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["stages"]
+    verbs: ["promote"]
+    resourceNames: ["dev", "staging"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developers
+  namespace: excalidraw-poc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: developers
+subjects:
+  - kind: ServiceAccount
+    name: developers
+    namespace: excalidraw-poc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: developers-viewer
+  namespace: excalidraw-poc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kargo-viewer
+subjects:
+  - kind: ServiceAccount
+    name: developers
+    namespace: excalidraw-poc
+---
+# Release managers : seuls autorisés à promouvoir en prod
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: release-manager
+  namespace: excalidraw-poc
+  annotations:
+    kargo.akuity.io/description: Promotion prod
+    rbac.kargo.akuity.io/claims: '{"groups":["__GROUP_RELEASE__"]}'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: release-manager
+  namespace: excalidraw-poc
+rules:
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["promotions"]
+    verbs: ["create", "patch", "update"]
+  - apiGroups: ["kargo.akuity.io"]
+    resources: ["stages"]
+    verbs: ["promote"]
+    resourceNames: ["prod"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-manager
+  namespace: excalidraw-poc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: release-manager
+subjects:
+  - kind: ServiceAccount
+    name: release-manager
+    namespace: excalidraw-poc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: release-manager-viewer
+  namespace: excalidraw-poc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kargo-viewer
+subjects:
+  - kind: ServiceAccount
+    name: release-manager
+    namespace: excalidraw-poc
