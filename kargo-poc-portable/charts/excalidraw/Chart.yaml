@@ -1,6 +1,0 @@
-apiVersion: v2
-name: excalidraw
-description: Excalidraw (images officielles, sans build), compatible PSA restricted
-type: application
-version: 0.2.0
-appVersion: "latest"

@@ -1,8 +1,0 @@
-# Argo Rollouts (chart argo/argo-rollouts).
-# Rôle dans la POC : fournir les CRD AnalysisTemplate / AnalysisRun que Kargo
-# utilise pour vérifier chaque environnement. Excalidraw n'utilise PAS de Rollout.
-installCRDs: true
-dashboard:
-  enabled: false
-controller:
-  replicas: 1
