@@ -13,4 +13,4 @@ podLabels:
   env: dev
 
 httpRoute:
-  hostname: excalidraw-dev.apps.98.90.197.103.sslip.io
+  hostname: excalidraw-dev.apps.54.162.203.26.sslip.io

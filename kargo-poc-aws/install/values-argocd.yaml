@@ -6,6 +6,6 @@ notifications:
   enabled: false
 configs:
   cm:
-    url: http://argocd.apps.98.90.197.103.sslip.io
+    url: http://argocd.apps.54.162.203.26.sslip.io
   params:
     server.insecure: true # HTTP derrière la Gateway (HTTPRoute argocd)

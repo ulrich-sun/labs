@@ -13,4 +13,4 @@ podLabels:
   env: staging
 
 httpRoute:
-  hostname: excalidraw-staging.apps.98.90.197.103.sslip.io
+  hostname: excalidraw-staging.apps.54.162.203.26.sslip.io

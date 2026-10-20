@@ -13,7 +13,7 @@ spec:
       namespace: gateway
       sectionName: http
   hostnames:
-    - kargo.apps.98.90.197.103.sslip.io
+    - kargo.apps.54.162.203.26.sslip.io
   rules:
     - backendRefs:
         - name: kargo-api
@@ -30,7 +30,7 @@ spec:
       namespace: gateway
       sectionName: http
   hostnames:
-    - argocd.apps.98.90.197.103.sslip.io
+    - argocd.apps.54.162.203.26.sslip.io
   rules:
     - backendRefs:
         - name: argocd-server
@@ -47,7 +47,7 @@ spec:
       namespace: gateway
       sectionName: http
   hostnames:
-    - workflows.apps.98.90.197.103.sslip.io
+    - workflows.apps.54.162.203.26.sslip.io
   rules:
     - backendRefs:
         - name: argo-workflows-server

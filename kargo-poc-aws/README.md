@@ -12,7 +12,7 @@ Promotion d'Excalidraw entre trois **namespaces** d'un cluster k3s sur une VM EC
   (réservés à Kargo sur Akuity Platform) sont reproduits avec **Argo Workflows**, appelé par
   l'étape native `http`.
 - Interfaces exposées par la **Gateway API** (Traefik de k3s + `HTTPRoute`) sur
-  `http://<app>.apps.<IP>.sslip.io` (ex. `http://kargo.apps.98.90.197.103.sslip.io`) :
+  `http://<app>.apps.<IP>.sslip.io` (ex. `http://kargo.apps.54.162.203.26.sslip.io`) :
   aucun DNS à gérer. Ports 22, 80 et 443 ouverts **uniquement depuis ton IP**.
 
 ## Contenu
