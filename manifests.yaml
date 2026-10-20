@@ -1,0 +1,143 @@
+---
+# Source: excalidraw/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: excalidraw
+  labels:
+    app.kubernetes.io/name: excalidraw
+    app.kubernetes.io/instance: excalidraw
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kargo
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: excalidraw
+    app.kubernetes.io/instance: excalidraw
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Source: excalidraw/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: excalidraw
+  labels:
+    app.kubernetes.io/name: excalidraw
+    app.kubernetes.io/instance: excalidraw
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kargo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: excalidraw
+      app.kubernetes.io/instance: excalidraw
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: excalidraw
+        app.kubernetes.io/instance: excalidraw
+        env: prod
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 101
+        runAsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: copy-static
+          image: "docker.io/excalidraw/excalidraw:latest@sha256:f7ee194addd607bf831d2af0f0a34463dd4225e426cf35199ef0b12a803398e9"
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - cp -R /usr/share/nginx/html/. /static/ && echo "fichiers copiés :" && ls /static | head
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: static
+              mountPath: /static
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+      containers:
+        - name: web
+          image: "docker.io/nginxinc/nginx-unprivileged:1.27-alpine"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: static
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+      volumes:
+        - name: static
+          emptyDir:
+            sizeLimit: 200Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 50Mi
+---
+# Source: excalidraw/templates/httproute.yaml
+# Exposition par la Gateway API : http://<httpRoute.hostname>
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: excalidraw
+  labels:
+    app.kubernetes.io/name: excalidraw
+    app.kubernetes.io/instance: excalidraw
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: kargo
+spec:
+  parentRefs:
+    - name: apps
+      namespace: gateway
+      sectionName: http
+  hostnames:
+    - "excalidraw-prod.apps.54.162.203.26.sslip.io"
+  rules:
+    - backendRefs:
+        - name: excalidraw
+          port: 80
