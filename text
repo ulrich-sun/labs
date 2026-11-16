@@ -223,3 +223,330 @@ Cette validation devra permettre de vérifier que les alertes se déclenchent da
 Les seuils devront également être réévalués à la suite de changements d'architecture, de modifications importantes de la charge, de l'intégration de nouveaux services ou d'incidents révélant des limites dans les mécanismes de détection.
 
 Les conditions retenues constitueront le référentiel de seuils utilisé pour la configuration et la maintenance des règles de surveillance du socle Kubernetes.
+
+
+
+
+
+## 6. Définition des propriétaires des alertes
+
+### 6.1. Objectif
+
+La définition des propriétaires des alertes vise à garantir que chaque situation nécessitant une intervention est associée à une équipe clairement identifiée et responsable de sa prise en charge.
+
+Dans un environnement Kubernetes, les incidents peuvent concerner différents composants techniques, services mutualisés ou applications hébergées. Leur traitement peut ainsi nécessiter l'intervention de plusieurs équipes disposant de responsabilités distinctes.
+
+Il est donc nécessaire de préciser les responsabilités associées à chaque domaine de surveillance afin de faciliter la qualification des incidents, leur traitement et leur éventuelle escalade.
+
+Cette démarche doit également permettre d'éviter les situations dans lesquelles une alerte est déclenchée sans qu'aucune équipe ne soit clairement désignée pour intervenir.
+
+### 6.2. Principes d'attribution des responsabilités
+
+L'attribution des responsabilités doit tenir compte du périmètre d'exploitation des équipes et de leur capacité à intervenir sur les composants concernés.
+
+Le propriétaire d'une alerte correspond à l'équipe chargée de garantir sa pertinence, de maintenir ses conditions de déclenchement et de veiller à ce qu'elle soit correctement prise en charge.
+
+Cette responsabilité doit être distinguée de celle de l'équipe appelée à intervenir lors d'un incident. Selon l'organisation, ces fonctions peuvent être assurées par une même équipe ou réparties entre plusieurs intervenants.
+
+Pour chaque alerte, les responsabilités suivantes devront être précisées :
+
+- **Propriétaire de l'alerte :** équipe responsable du maintien de l'exigence et de la pertinence de sa configuration.
+- **Équipe destinataire :** équipe chargée de recevoir et de qualifier les notifications.
+- **Équipe d'intervention :** équipe disposant des compétences et des accès nécessaires pour traiter l'incident.
+- **Équipe d'escalade :** équipe sollicitée lorsque l'incident dépasse les capacités ou le périmètre de l'intervenant initial.
+
+Cette répartition doit permettre de garantir une continuité entre la détection d'une anomalie et sa résolution.
+
+### 6.3. Répartition des responsabilités par domaine
+
+Les responsabilités devront être définies en fonction de l'organisation opérationnelle et des domaines technologiques concernés.
+
+La répartition suivante constitue une base de travail à confirmer avec les équipes responsables du socle.
+
+| Domaine de surveillance | Responsabilité principale proposée |
+|---|---|
+| Infrastructure Kubernetes et plan de contrôle | Équipe responsable de la plateforme Kubernetes |
+| Nœuds d'exécution et ressources système | Équipe responsable de la plateforme Kubernetes, avec appui des équipes d'infrastructure si nécessaire |
+| Réseau Kubernetes et politiques réseau | Équipe responsable de la plateforme Kubernetes, en collaboration avec l'équipe réseau |
+| Stockage persistant et Longhorn | Équipe responsable de la plateforme Kubernetes ou du stockage, selon les responsabilités établies |
+| Stockage objet MinIO | Équipe responsable du service de stockage objet |
+| Sauvegarde et restauration | Équipe responsable des mécanismes de sauvegarde et de récupération |
+| Sécurité et Kubewarden | Équipes responsables de la plateforme et de la sécurité |
+| Gestion des accès et autorisations | Équipes responsables de la plateforme et de la sécurité |
+| Déploiements et Fleet | Équipe responsable de la gestion des déploiements |
+| Supervision et observabilité | Équipe responsable du dispositif de supervision |
+| Applications hébergées | Équipe responsable de l'application concernée |
+
+Cette répartition ne constitue pas une attribution définitive. Les responsabilités réelles devront être validées avant la mise en service des alertes.
+
+### 6.4. Gestion des responsabilités pour les services mutualisés
+
+Certains composants du socle Kubernetes assurent des fonctions utilisées par plusieurs applications ou plusieurs équipes.
+
+Une défaillance de ces services peut entraîner simultanément plusieurs alertes et nécessiter une coordination entre les responsables de la plateforme et les équipes applicatives.
+
+Dans ces situations, l'équipe responsable du composant à l'origine de l'incident doit pouvoir être identifiée afin de faciliter le traitement et de limiter les interventions redondantes.
+
+Les modalités de notification et d'escalade devront permettre aux équipes concernées de disposer des informations nécessaires sans générer de notifications multiples pour une même défaillance.
+
+### 6.5. Gestion des responsabilités pour les applications hébergées
+
+Les alertes applicatives doivent être associées aux équipes responsables des services concernés.
+
+La surveillance des applications repose sur une responsabilité partagée entre les équipes qui administrent l'infrastructure Kubernetes et celles qui exploitent les applications.
+
+Les équipes responsables de la plateforme interviennent sur les anomalies liées aux composants mutualisés, tandis que les équipes applicatives prennent en charge les dysfonctionnements propres aux applications.
+
+Lorsqu'un incident concerne plusieurs domaines, les responsabilités devront être précisées afin de faciliter la coordination et l'identification de la cause.
+
+Cette distinction s'appliquera notamment à JFrog Artifactory, dont le fonctionnement dépend à la fois de Kubernetes, du stockage et de ses propres composants applicatifs.
+
+### 6.6. Notification et escalade
+
+Les alertes nécessitant une intervention devront être transmises aux équipes concernées selon leur niveau de priorité et les modalités de prise en charge définies dans le référentiel « Classification et priorisation des alertes ».
+
+Les mécanismes de notification devront permettre d'orienter les alertes vers les destinataires appropriés et de limiter les sollicitations inutiles.
+
+Lorsqu'une situation ne peut pas être résolue par l'équipe initialement sollicitée, une procédure d'escalade devra permettre de mobiliser les intervenants disposant des compétences nécessaires.
+
+Les modalités de notification et d'escalade devront être adaptées à la criticité de l'incident, à l'environnement concerné et aux exigences de disponibilité des services.
+
+### 6.7. Documentation et validation des propriétaires
+
+Les responsabilités définies devront être documentées pour chaque alerte retenue.
+
+Les informations à conserver comprendront notamment :
+
+- Le composant ou le service concerné.
+- Le propriétaire de l'alerte.
+- L'équipe destinataire de la notification.
+- L'équipe chargée de l'intervention.
+- Les contacts ou mécanismes d'escalade.
+- La procédure opérationnelle associée, lorsqu'elle existe.
+
+Les responsabilités devront être validées avec les équipes concernées avant l'activation des notifications.
+
+Elles devront également être réévaluées lorsque l'organisation, les périmètres d'exploitation ou les responsabilités techniques évoluent.
+
+
+
+
+
+## 7. Validation et suivi des exigences de surveillance
+
+### 7.1. Objectif
+
+La validation des exigences de surveillance vise à s'assurer que les besoins identifiés sont correctement pris en compte par le dispositif de supervision et que les mécanismes mis en place permettent de détecter et de signaler les situations attendues.
+
+Cette démarche doit permettre de vérifier la cohérence entre les exigences documentées, les configurations appliquées dans les outils de supervision et les résultats observés lors des tests.
+
+Elle doit également faciliter l'identification des besoins déjà couverts, des configurations nécessitant des ajustements et des exigences restant à mettre en œuvre.
+
+La validation constitue ainsi une étape essentielle pour garantir que le dispositif de surveillance répond aux besoins opérationnels du socle Kubernetes.
+
+### 7.2. Évaluation de la couverture existante
+
+Avant de procéder à la création ou à la modification des règles de surveillance, il est nécessaire d'examiner les mécanismes déjà disponibles.
+
+Cette évaluation doit porter sur les règles d'alerte existantes, les indicateurs collectés, les tableaux de bord disponibles et les mécanismes de notification configurés.
+
+Elle doit notamment permettre de déterminer si les exigences identifiées sont déjà couvertes de manière satisfaisante.
+
+Pour chaque exigence, l'évaluation devra permettre de distinguer les situations suivantes :
+
+| État de couverture | Description |
+|---|---|
+| Couverte | Les mécanismes existants répondent à l'exigence et leur fonctionnement a été vérifié |
+| Partiellement couverte | Des mécanismes existent, mais certaines conditions ou fonctionnalités restent à compléter |
+| Non couverte | Aucun mécanisme adapté ne permet actuellement de répondre à l'exigence |
+| À vérifier | Les informations disponibles ne permettent pas encore de confirmer le niveau de couverture |
+
+Cette analyse devra être réalisée sur les différents clusters concernés afin de tenir compte des éventuelles différences de configuration entre les environnements.
+
+### 7.3. Traduction des exigences en configurations techniques
+
+Les exigences validées doivent pouvoir être traduites en configurations exploitables par les outils de supervision.
+
+Pour chaque alerte, cette traduction devra préciser les éléments nécessaires à sa mise en œuvre, notamment les indicateurs utilisés, les conditions de déclenchement, les durées de persistance et les informations permettant son identification.
+
+Les configurations devront également tenir compte des environnements concernés, des priorités définies et des responsabilités de traitement.
+
+Dans le contexte du socle Kubernetes, cette mise en œuvre pourra notamment s'appuyer sur les règles de surveillance Prometheus, les mécanismes de notification associés et les tableaux de bord Grafana.
+
+Les configurations devront être organisées de manière à faciliter leur déploiement, leur consultation et leur maintenance sur les différents clusters.
+
+Lorsque les configurations sont gérées à partir de fichiers versionnés, toute modification devra pouvoir être associée à l'exigence qu'elle permet de satisfaire.
+
+### 7.4. Vérification des conditions de déclenchement
+
+Les règles de surveillance devront faire l'objet de vérifications afin de confirmer qu'elles détectent correctement les situations pour lesquelles elles ont été définies.
+
+Ces vérifications devront porter sur les conditions de déclenchement, les seuils retenus, les durées de persistance et le comportement des alertes lors du retour à un état normal.
+
+Elles devront également permettre de s'assurer que les règles ne produisent pas de notifications injustifiées lors d'événements transitoires ou de comportements attendus.
+
+Lorsque cela est possible, les vérifications pourront être réalisées dans un environnement de test ou à l'aide de scénarios contrôlés permettant de reproduire les conditions recherchées.
+
+Les tests susceptibles d'affecter la disponibilité des composants devront être encadrés afin de ne pas introduire de risques supplémentaires pour les services en exploitation.
+
+### 7.5. Validation des notifications et de la prise en charge
+
+La validation ne doit pas se limiter au déclenchement technique d'une alerte.
+
+Il est également nécessaire de vérifier que celle-ci est correctement transmise à l'équipe concernée et qu'elle contient les informations nécessaires à sa qualification.
+
+Les vérifications devront notamment permettre de confirmer :
+
+- Que l'alerte est transmise au destinataire prévu.
+- Que son niveau de priorité est cohérent avec le référentiel de classification.
+- Que les informations relatives au cluster, à l'environnement et au composant concerné sont disponibles.
+- Que les notifications sont suffisamment explicites pour faciliter l'identification du problème.
+- Que les mécanismes de regroupement et d'escalade fonctionnent conformément aux modalités définies.
+- Que le retour à la normale est correctement pris en compte.
+
+Cette validation doit permettre de s'assurer qu'une anomalie détectée peut effectivement conduire à une intervention appropriée.
+
+### 7.6. Validation des tableaux de bord
+
+Les tableaux de bord identifiés devront être examinés afin de confirmer qu'ils présentent les informations nécessaires au suivi et au diagnostic des composants surveillés.
+
+Cette validation devra notamment porter sur la disponibilité des données, la pertinence des indicateurs, la lisibilité des informations et la capacité à identifier les situations anormales.
+
+Lorsqu'une alerte est associée à un tableau de bord, celui-ci devra permettre de consulter les informations utiles à la compréhension de la défaillance.
+
+Les tableaux de bord existants pourront être conservés, adaptés ou complétés selon les résultats de cette évaluation.
+
+### 7.7. Traçabilité des exigences et des configurations
+
+Chaque exigence retenue devra pouvoir être reliée aux mécanismes techniques mis en œuvre pour y répondre.
+
+Cette traçabilité doit permettre de retrouver les règles de surveillance correspondantes, les tableaux de bord associés, les modalités de notification ainsi que les résultats des vérifications réalisées.
+
+Les informations de suivi devront notamment préciser :
+
+| Information | Description |
+|---|---|
+| Exigence de surveillance | Situation que le dispositif doit être capable de détecter |
+| Composant concerné | Service ou ressource faisant l'objet de la surveillance |
+| Configuration associée | Référence à la règle ou au mécanisme de surveillance |
+| Environnement | Cluster et environnement concernés |
+| Tableau de bord | Vue permettant de consulter les informations utiles au diagnostic |
+| Propriétaire | Équipe responsable de l'exigence et de son maintien |
+| État de mise en œuvre | Situation actuelle de la configuration |
+| Résultat de validation | Confirmation du fonctionnement attendu ou identification des écarts |
+| Date de vérification | Date de la dernière validation réalisée |
+
+Ces informations constitueront une référence pour le suivi des exigences et les opérations de maintenance du dispositif de supervision.
+
+### 7.8. Critères d'acceptation des exigences
+
+Une exigence de surveillance pourra être considérée comme mise en œuvre et validée lorsque les conditions suivantes sont satisfaites :
+
+1. Le besoin de surveillance et son objectif opérationnel sont clairement définis.
+2. Les indicateurs nécessaires à la détection sont disponibles et exploitables.
+3. Les conditions et les seuils de déclenchement ont été définis et approuvés.
+4. La configuration correspondante est appliquée aux clusters concernés.
+5. Le comportement de l'alerte a été vérifié dans des conditions adaptées.
+6. Les notifications sont transmises aux équipes prévues.
+7. Les informations nécessaires au diagnostic sont accessibles.
+8. Le propriétaire de l'alerte est identifié.
+9. Les résultats de validation sont documentés.
+
+Lorsqu'une exigence ne satisfait pas l'ensemble des critères applicables, les écarts devront être identifiés et suivis jusqu'à leur résolution ou leur acceptation formelle.
+
+### 7.9. Suivi de la mise en œuvre
+
+La mise en œuvre des exigences devra faire l'objet d'un suivi permettant d'identifier les travaux réalisés, les actions restantes et les éventuelles difficultés rencontrées.
+
+Ce suivi devra permettre de disposer d'une vision consolidée de la couverture de surveillance pour les différents clusters et domaines technologiques.
+
+Les exigences non couvertes ou partiellement couvertes devront être priorisées selon leur importance opérationnelle et les risques associés.
+
+Les résultats de ce suivi serviront à orienter les évolutions du dispositif de supervision et à vérifier progressivement l'atteinte des objectifs définis dans le présent document.
+
+
+## 8. Maintien et évolution du référentiel
+
+### 8.1. Objectif
+
+Le référentiel des exigences de surveillance et d'alerting doit être maintenu à jour afin de refléter l'évolution du socle Kubernetes et des services qui y sont hébergés.
+
+Les changements apportés à l'architecture, aux composants techniques ou aux besoins d'exploitation peuvent nécessiter l'ajout de nouvelles exigences, l'adaptation des seuils existants ou la modification des mécanismes de notification.
+
+Le maintien du référentiel vise à garantir que le dispositif de supervision demeure cohérent avec l'environnement réellement exploité et continue de répondre aux besoins de surveillance de l'organisation.
+
+### 8.2. Évolution du périmètre technique
+
+Les exigences devront être réévaluées lorsqu'une évolution significative intervient dans le socle Kubernetes.
+
+Cette réévaluation pourra notamment être nécessaire lors :
+
+- De l'ajout ou du retrait d'un cluster.
+- De l'intégration d'une nouvelle solution technique.
+- Du déploiement d'une nouvelle application ou d'un nouveau service.
+- De la modification de l'architecture d'un composant existant.
+- De l'évolution des mécanismes de stockage, de sauvegarde, de réseau ou de sécurité.
+- De la modification des exigences de disponibilité ou de récupération des services.
+- Du changement des responsabilités d'exploitation.
+
+Toute évolution susceptible d'introduire de nouveaux risques opérationnels devra être accompagnée d'une analyse des besoins de surveillance correspondants.
+
+### 8.3. Gestion des modifications des exigences
+
+Les modifications apportées aux exigences devront être documentées afin de conserver une trace des décisions et de leurs justifications.
+
+Lorsqu'une alerte est ajoutée, modifiée ou retirée, il conviendra d'évaluer les conséquences sur les règles de surveillance, les seuils, les tableaux de bord et les mécanismes de notification associés.
+
+Les changements devront être validés par les équipes concernées avant leur application, conformément aux processus de gestion des modifications en vigueur.
+
+La documentation devra permettre d'identifier les exigences modifiées et les configurations techniques concernées.
+
+### 8.4. Réévaluation des seuils et des alertes
+
+Les seuils de déclenchement et les conditions de surveillance devront faire l'objet d'une réévaluation lorsque leur pertinence est remise en question.
+
+Cette réévaluation pourra notamment s'appuyer sur l'évolution de la consommation des ressources, les changements de charge, les incidents rencontrés et les retours des équipes d'exploitation.
+
+Une attention particulière devra être accordée aux alertes générant un volume important de notifications non pertinentes ainsi qu'aux situations dans lesquelles une défaillance significative n'a pas été détectée.
+
+Les ajustements réalisés devront conserver un équilibre entre la rapidité de détection et la limitation des alertes inutiles.
+
+### 8.5. Prise en compte des retours d'expérience
+
+Les incidents rencontrés sur les clusters et les services hébergés constituent une source importante d'amélioration du dispositif de supervision.
+
+À la suite d'un incident significatif, il conviendra d'examiner si les mécanismes de surveillance ont permis de détecter la situation dans des délais appropriés et si les informations transmises ont facilité sa prise en charge.
+
+Cette analyse pourra conduire à l'adaptation d'une règle existante, à l'ajout d'une nouvelle exigence ou à l'amélioration d'un tableau de bord.
+
+Les enseignements tirés de ces incidents devront contribuer à renforcer progressivement la qualité et la pertinence du dispositif de surveillance.
+
+### 8.6. Cohérence entre le référentiel et les configurations déployées
+
+Les exigences documentées doivent demeurer cohérentes avec les configurations réellement appliquées dans les outils de supervision.
+
+Toute modification significative d'une règle de surveillance, d'un seuil ou d'un mécanisme de notification devra être répercutée dans les informations de référence correspondantes.
+
+Inversement, toute évolution validée d'une exigence devra donner lieu à une vérification de sa prise en compte dans les configurations techniques.
+
+Cette cohérence est nécessaire pour garantir la fiabilité du référentiel et éviter les écarts entre les besoins définis et le fonctionnement réel du dispositif de supervision.
+
+### 8.7. Revue périodique du référentiel
+
+Une revue périodique des exigences devra être organisée afin de vérifier leur pertinence et leur couverture.
+
+Cette revue devra notamment permettre de confirmer que les composants surveillés correspondent au périmètre technique en exploitation, que les alertes restent adaptées aux risques identifiés et que les responsabilités sont toujours correctement attribuées.
+
+Les écarts constatés devront être documentés et faire l'objet d'actions de correction ou d'amélioration.
+
+La fréquence de révision sera définie en fonction des besoins de l'organisation et du rythme d'évolution du socle Kubernetes.
+
+### 8.8. Gestion documentaire
+
+Le présent référentiel devra être conservé dans un espace documentaire accessible aux équipes concernées.
+
+Son évolution devra être suivie au moyen d'un historique des versions permettant d'identifier les principales modifications apportées, leur date et leur validation.
+
+Les documents et supports techniques associés, notamment les catalogues d'alertes, les configurations de surveillance et les procédures opérationnelles, devront être maintenus en cohérence avec les exigences définies.
+
+Cette organisation doit permettre de disposer d'une documentation fiable, compréhensible et exploitable tout au long du cycle de vie du dispositif de supervision.
