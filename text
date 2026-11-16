@@ -1,687 +1,225 @@
-La surveillance doit permettre d'identifier les échecs de sauvegarde, les interruptions des opérations de protection et les situations dans lesquelles les données ne disposent plus d'une sauvegarde récente et exploitable.
+## 5. Documentation des seuils d'alerte
 
-Elle doit également contribuer à vérifier que les mécanismes de restauration répondent aux besoins de récupération définis pour les services concernés.
+### 5.1. Objectif
 
-2.4.5. Sécurité et gouvernance
+La définition des seuils d'alerte vise à établir les conditions dans lesquelles une situation anormale doit être signalée aux équipes responsables de l'exploitation du socle Kubernetes.
 
-La surveillance des composants de sécurité concerne les mécanismes permettant de contrôler les accès, d'encadrer les déploiements et de faire respecter les politiques de sécurité définies pour les clusters.
+Les seuils doivent permettre de détecter les défaillances et les dégradations significatives tout en limitant les notifications inutiles ou répétitives.
 
-Elle porte notamment sur la gestion des rôles et des autorisations Kubernetes ainsi que sur les politiques d'admission mises en œuvre avec Kubewarden.
+Leur définition doit tenir compte du fonctionnement des composants surveillés, de leur capacité à supporter certaines dégradations et des conséquences potentielles sur les services hébergés.
 
-Les exigences devront permettre de détecter les défaillances des mécanismes de contrôle, les changements sensibles et les situations susceptibles de compromettre l'application des règles de sécurité.
+Les seuils retenus doivent être documentés et justifiés afin de garantir une surveillance cohérente entre les différents clusters et de faciliter leur réévaluation lorsque l'environnement évolue.
 
-2.4.6. Gestion des déploiements
+### 5.2. Principes de définition des seuils
 
-La surveillance des déploiements concerne les mécanismes utilisés pour appliquer et maintenir les configurations et les applications sur les clusters Kubernetes.
+Les conditions de déclenchement doivent être adaptées à la nature du composant surveillé et au risque que l'alerte cherche à détecter.
 
-Elle porte notamment sur Fleet, utilisé pour la gestion et la distribution des configurations et des déploiements.
+Une défaillance entraînant une indisponibilité immédiate ne doit pas nécessairement être traitée de la même manière qu'une augmentation progressive de la consommation des ressources.
 
-Les exigences devront permettre d'identifier les échecs de déploiement, les problèmes de synchronisation et les écarts persistants entre les configurations attendues et celles effectivement appliquées.
+La définition des seuils repose sur les principes suivants.
 
-2.4.7. Supervision et observabilité
+**Prise en compte de l'impact sur les services**
 
-La surveillance de la plateforme d'observabilité concerne les composants chargés de collecter, de centraliser et de présenter les informations relatives à l'état du socle.
+Les conditions de déclenchement doivent refléter les conséquences potentielles de l'anomalie. Une défaillance affectant directement un service critique peut justifier une notification plus rapide qu'une dégradation sans impact immédiat.
 
-Elle inclut Prometheus, Grafana et Thanos, ainsi que les mécanismes permettant de déclencher et de transmettre les alertes.
+**Prise en compte du fonctionnement normal des composants**
 
-L'objectif est de s'assurer que le dispositif de supervision demeure opérationnel et qu'une défaillance de ses propres composants ne conduise pas à une perte prolongée de visibilité sur l'état des clusters.
+Les seuils doivent tenir compte des caractéristiques de chaque technologie, notamment de ses mécanismes de redondance, de ses capacités de récupération et de son comportement habituel.
 
-2.4.8. Applications et services hébergés
+**Limitation des alertes non pertinentes**
 
-La surveillance applicative concerne les applications déployées sur les clusters Kubernetes, notamment JFrog Artifactory, ainsi que les autres services qui seront intégrés au socle.
+Les variations ponctuelles et les événements transitoires ne doivent pas nécessairement entraîner une notification lorsqu'ils ne présentent pas de risque significatif.
 
-Elle doit permettre de détecter les indisponibilités, les anomalies de fonctionnement, les dégradations de performance et les problèmes liés aux dépendances nécessaires au fonctionnement des applications.
+**Anticipation des situations de saturation**
 
-Les exigences applicatives seront définies en tenant compte de l'importance des services, de leurs caractéristiques techniques et de leurs besoins de disponibilité.
+Pour les ressources dont la consommation évolue progressivement, la surveillance doit permettre d'identifier les risques de saturation suffisamment tôt pour faciliter une intervention préventive.
 
-2.5. Prise en compte des environnements
+**Cohérence entre les environnements**
 
-Les exigences de surveillance s'appliquent aux environnements de production et hors production.
+Les exigences doivent être appliquées de manière cohérente aux clusters de production et hors production. Des différences pourront être définies lorsque la criticité des services, les capacités disponibles ou les besoins d'exploitation le justifient.
 
-Les mécanismes de détection pourront être communs aux différents environnements, mais les priorités, les seuils et les modalités de notification devront être adaptés à l'importance des services et aux conséquences potentielles d'une défaillance.
+### 5.3. Nature des conditions de déclenchement
 
-La distinction entre les environnements ne doit pas conduire à exclure systématiquement les services hors production de la surveillance. Certains d'entre eux peuvent jouer un rôle important dans les opérations de développement, de validation ou de livraison des applications.
+Les alertes peuvent reposer sur différents types de conditions selon le fonctionnement des composants surveillés.
 
-La classification des alertes et les modalités de prise en charge resteront alignées sur le référentiel de priorisation déjà établi.
+| Type de condition | Description | Exemple d'application |
+|---|---|---|
+| Disponibilité | Déclenchement lorsqu'un composant ou un service devient indisponible | Serveur d'interface Kubernetes inaccessible |
+| État de fonctionnement | Déclenchement lorsqu'un composant présente un état anormal | Volume Longhorn indisponible |
+| Capacité | Déclenchement lorsqu'une ressource approche ou atteint une limite définie | Espace de stockage insuffisant |
+| Performance | Déclenchement lorsqu'un indicateur dépasse un niveau considéré comme anormal | Augmentation importante du temps de réponse |
+| Échec d'opération | Déclenchement lorsqu'une opération attendue échoue | Échec d'une sauvegarde Velero |
+| Absence d'exécution | Déclenchement lorsqu'une opération attendue n'a pas été réalisée | Tâche planifiée non exécutée |
+| Conformité | Déclenchement lorsqu'un écart significatif est constaté par rapport à une configuration attendue | Modification non autorisée d'une permission sensible |
+| Perte de surveillance | Déclenchement lorsque les données nécessaires à la supervision ne sont plus disponibles | Arrêt de la collecte des métriques d'un composant essentiel |
 
-2.6. Évolution du périmètre
+Ces conditions pourront être combinées lorsque cela est nécessaire pour représenter correctement une situation opérationnelle.
 
-Le périmètre de surveillance est amené à évoluer avec l'ajout de nouveaux clusters, de nouvelles solutions techniques ou de nouvelles applications.
+### 5.4. Définition des seuils pour l'infrastructure Kubernetes
 
-Toute évolution significative du socle devra être accompagnée d'une évaluation des besoins de surveillance correspondants.
+Les seuils associés aux composants fondamentaux de Kubernetes doivent permettre d'identifier les défaillances susceptibles de compromettre le fonctionnement du cluster.
 
-Cette approche doit permettre de maintenir une couverture cohérente des composants et des services, tout en préservant la lisibilité et la facilité de maintenance du référentiel.
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Base de données etcd | Perte du quorum | Absence de majorité fonctionnelle parmi les membres attendus |
+| Serveur d'interface Kubernetes | Indisponibilité du service | Aucun point d'accès au service ne répond correctement |
+| Plan de contrôle | Défaillance générale | Fonctions essentielles de gestion et de réconciliation indisponibles |
+| Nœuds d'exécution | Indisponibilité d'un nœud | Nœud restant dans un état non opérationnel pendant une durée définie |
+| Ressources des nœuds | Saturation des ressources | Utilisation durablement élevée ou capacité disponible insuffisante |
+| Résolution des noms | Indisponibilité du service | Échec persistant des contrôles de résolution des noms internes |
 
+Pour la base de données etcd, la perte du quorum constitue une condition directement liée à son fonctionnement. Sur le cluster de référence comprenant trois membres, le quorum nécessite la disponibilité d'une majorité de deux membres capables de communiquer.
 
+Pour les autres composants, les conditions devront être précisées à partir des mécanismes de surveillance disponibles et des conséquences attendues sur les services.
 
+### 5.5. Définition des seuils pour le stockage
 
+La surveillance du stockage doit permettre d'identifier les situations dans lesquelles les données deviennent indisponibles ou risquent de ne plus être accessibles.
 
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Longhorn | Volume indisponible | Volume essentiel ne permettant plus l'accès aux données |
+| Longhorn | Réplication dégradée | Nombre de réplicas disponibles inférieur au niveau attendu |
+| Longhorn | Capacité insuffisante | Espace disponible inférieur au niveau nécessaire au fonctionnement normal |
+| Gestion des volumes Kubernetes | Échec de montage | Échecs persistants de montage ou d'attachement de volumes essentiels |
+| MinIO | Service indisponible | Échec des contrôles de disponibilité du stockage objet |
+| Stockage objet | Capacité ou accès dégradé | Erreurs persistantes d'accès ou capacité insuffisante |
 
+Les seuils de capacité devront être déterminés en tenant compte de l'espace disponible, de la vitesse de consommation et des besoins de fonctionnement des composants.
 
+Pour Longhorn, la surveillance devra également prendre en compte les mécanismes de réplication afin de distinguer les situations dans lesquelles un volume reste disponible de celles présentant un risque immédiat d'indisponibilité.
 
-3. Détermination des alertes critiques
+### 5.6. Définition des seuils pour les sauvegardes et les restaurations
 
-3.1. Objectif
+Les seuils associés aux sauvegardes doivent permettre de vérifier que les mécanismes de protection des données respectent les exigences définies pour chaque service.
 
-L'identification des alertes critiques vise à déterminer les situations susceptibles de compromettre gravement le fonctionnement des clusters Kubernetes, la disponibilité des services de plateforme ou la continuité des applications hébergées.
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Velero | Échec de sauvegarde | Échec d'une opération attendue selon son importance |
+| Velero | Absence de sauvegarde récente | Ancienneté de la dernière sauvegarde valide supérieure à la limite définie |
+| Sauvegardes etcd | Protection insuffisante | Absence de sauvegarde exploitable dans la période attendue |
+| Stockage des sauvegardes | Indisponibilité | Impossibilité persistante d'accéder à la destination des sauvegardes |
+| Restauration | Échec de récupération | Échec d'une opération de restauration requise ou d'un test planifié |
 
-Cette démarche consiste à identifier les principaux scénarios de défaillance, à évaluer leurs conséquences et à définir les besoins de détection correspondants.
+Les conditions de déclenchement devront être définies en fonction des fréquences de sauvegarde et des objectifs de récupération établis pour les services.
 
-L'objectif n'est pas de générer une alerte pour chaque anomalie technique, mais de permettre aux équipes d'exploitation d'être informées rapidement lorsqu'une situation nécessite une intervention prioritaire.
+Un échec ponctuel ne doit pas nécessairement entraîner une alerte critique si une sauvegarde récente et exploitable reste disponible.
 
-Les alertes identifiées devront être cohérentes avec le référentiel « Classification et priorisation des alertes », qui définit les règles de priorisation applicables aux différents environnements.
+En revanche, l'absence prolongée de sauvegarde valide doit être signalée lorsque les objectifs de protection des données risquent de ne plus être respectés.
 
-3.2. Critères d'identification des situations critiques
+### 5.7. Définition des seuils pour le réseau et la sécurité
 
-Une situation est considérée comme potentiellement critique lorsqu'elle entraîne ou risque d'entraîner à très court terme une interruption majeure du fonctionnement d'un cluster ou d'un service essentiel.
+Les conditions de déclenchement associées au réseau et aux mécanismes de sécurité doivent permettre de détecter les interruptions de communication et les défaillances des contrôles essentiels.
 
-L'évaluation doit notamment tenir compte des éléments suivants :
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Réseau Kubernetes | Perte de connectivité | Échecs persistants des communications essentielles |
+| Résolution des noms | Dégradation du service | Échecs de résolution ou temps de réponse anormalement élevés |
+| Politiques réseau | Dysfonctionnement | Échec des contrôles de connectivité attendus ou écart de configuration significatif |
+| Kubewarden | Défaillance du contrôle d'admission | Erreurs persistantes empêchant les opérations essentielles |
+| Gestion des accès | Modification sensible | Changement non autorisé d'une permission ou d'un rôle critique |
 
-La disponibilité du service : déterminer si la défaillance entraîne une interruption complète ou une dégradation importante.
+Les conditions devront distinguer les comportements attendus, tels que les refus d'accès conformes aux politiques de sécurité, des anomalies nécessitant une intervention.
 
-L'étendue de l'incident : identifier si le problème concerne un composant isolé, plusieurs applications ou l'ensemble du cluster.
+Lorsque les métriques ne permettent pas de détecter directement une situation, des contrôles complémentaires fondés sur les événements ou les journaux d'audit pourront être nécessaires.
 
-La redondance disponible : évaluer si les mécanismes de haute disponibilité permettent de maintenir le fonctionnement normal.
+### 5.8. Définition des seuils pour les déploiements et les tâches automatisées
 
-La protection des données : déterminer si la défaillance menace l'accès, l'intégrité ou la récupération des données.
+La surveillance des déploiements et des tâches automatisées doit permettre d'identifier les opérations essentielles qui échouent ou ne s'exécutent pas dans les délais attendus.
 
-Les conséquences opérationnelles : évaluer les répercussions sur les activités de l'organisation.
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Fleet | Échec de synchronisation | Écart persistant entre les configurations attendues et appliquées |
+| Déploiements Kubernetes | Application non disponible | Nombre d'instances disponibles inférieur au niveau nécessaire |
+| Tâches planifiées | Échec d'exécution | Échec d'une tâche essentielle |
+| Tâches planifiées | Exécution manquante | Absence d'exécution réussie dans la période attendue |
+| Tâches automatisées | Durée anormale | Exécution dépassant la durée maximale acceptable |
 
-L'environnement concerné : adapter la priorité selon les exigences de production et de hors production.
+Les seuils devront tenir compte de la fréquence normale des opérations et de leur importance pour le fonctionnement du socle.
 
-La classification définitive des alertes sera effectuée selon les règles établies dans le référentiel de priorisation.
+### 5.9. Définition des seuils pour la plateforme de supervision
 
-3.3. Alertes critiques liées à l'infrastructure Kubernetes
+La supervision de la plateforme d'observabilité doit permettre de détecter les défaillances affectant la collecte des métriques, l'évaluation des alertes ou leur transmission.
 
-Les composants fondamentaux de Kubernetes assurent le fonctionnement du cluster et la gestion des ressources nécessaires à l'exécution des applications.
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| Prometheus | Perte de collecte | Absence persistante des métriques attendues |
+| Prometheus | Défaillance de l'évaluation des alertes | Erreurs persistantes dans l'exécution des règles de surveillance |
+| Thanos | Perte de visibilité | Indisponibilité de sources de données nécessaires à la surveillance centralisée |
+| Gestion des alertes | Échec de notification | Impossibilité persistante de transmettre les notifications attendues |
+| Plateforme d'observabilité | Indisponibilité majeure | Perte significative des capacités de détection ou d'alerte |
 
-Leur surveillance doit permettre de détecter les défaillances majeures susceptibles d'empêcher le cluster de fonctionner normalement ou de maintenir les services essentiels.
+Les seuils devront être définis en fonction de l'architecture de supervision et des mécanismes de redondance disponibles.
 
-Composant
+Une attention particulière devra être portée aux situations dans lesquelles la défaillance d'un outil empêche la détection de ses propres anomalies.
 
-Situation critique à détecter
+### 5.10. Définition des seuils pour les applications hébergées
 
-Conséquences potentielles
+Les conditions de déclenchement associées aux applications doivent être adaptées à leur fonctionnement et aux attentes de disponibilité des services concernés.
 
-Base de données etcd
+| Composant | Situation surveillée | Condition de déclenchement envisagée |
+|---|---|---|
+| JFrog Artifactory | Indisponibilité du service | Échec persistant des contrôles de disponibilité |
+| JFrog Artifactory | Dégradation du fonctionnement | Augmentation significative des erreurs ou des temps de réponse |
+| Applications essentielles | Indisponibilité | Service incapable de répondre aux demandes attendues |
+| Applications essentielles | Capacité insuffisante | Ressources disponibles ne permettant plus un fonctionnement satisfaisant |
+| Dépendances applicatives | Défaillance | Indisponibilité d'une dépendance nécessaire à une fonction essentielle |
 
-Perte du quorum nécessaire au fonctionnement de la base de données
+Les seuils applicatifs devront être définis en collaboration avec les équipes responsables des services.
 
-Impossibilité de maintenir et de modifier normalement l'état du cluster
+Ils devront tenir compte des caractéristiques des applications, de leur utilisation et de leurs objectifs de disponibilité.
 
-Serveur d'interface Kubernetes
+### 5.11. Durée de persistance des conditions d'alerte
 
-Indisponibilité de l'ensemble des points d'accès fonctionnels à l'interface du cluster
+Certaines anomalies peuvent apparaître temporairement sans compromettre durablement le fonctionnement d'un service.
 
-Impossibilité de réaliser les opérations de gestion et de communication avec le plan de contrôle
+Afin de limiter les notifications inutiles, les règles d'alerte pourront prévoir une durée minimale pendant laquelle la condition doit rester présente avant de déclencher une notification.
 
-Plan de contrôle
+Cette durée devra être adaptée à la nature de l'événement.
 
-Indisponibilité générale des fonctions de gestion et de réconciliation
+Les défaillances majeures nécessitant une intervention immédiate devront être détectées rapidement, tandis que certaines anomalies de performance ou de consommation pourront nécessiter une période d'observation plus longue.
 
-Dégradation majeure du pilotage du cluster
+La durée de persistance retenue devra être documentée et justifiée pour chaque alerte.
 
-Nœuds d'exécution
+Il conviendra également de tenir compte de la fréquence de collecte des métriques et du temps nécessaire à leur évaluation afin de vérifier que le délai réel de détection reste compatible avec les besoins opérationnels.
 
-Perte de capacité provoquant l'indisponibilité de services essentiels
+### 5.12. Adaptation des seuils aux environnements
 
-Interruption des applications concernées
+Les seuils devront être adaptés aux caractéristiques des environnements de production et hors production lorsque cela est justifié.
 
-Réseau Kubernetes
+Les mécanismes de détection peuvent rester identiques lorsque le comportement attendu d'un composant ne dépend pas de son environnement.
 
-Défaillance généralisée des communications entre applications et services
+En revanche, les modalités de notification, les durées de persistance ou les seuils de capacité pourront varier selon l'importance des services et les conséquences potentielles d'une défaillance.
 
-Rupture des échanges nécessaires à leur fonctionnement
+Toute différence devra être documentée afin de garantir la cohérence des règles de surveillance.
 
-Résolution des noms
+### 5.13. Documentation et justification des seuils
 
-Indisponibilité générale de la résolution des noms internes
+Chaque alerte devra disposer d'une description suffisamment précise pour permettre sa compréhension, sa validation et sa maintenance.
 
-Dysfonctionnement des applications dépendantes du service de résolution
+Les informations à documenter comprennent notamment :
 
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre de détecter les défaillances majeures des composants fondamentaux de Kubernetes et d'identifier les clusters concernés.
-
-Une attention particulière doit être portée à la base de données etcd. Sur le cluster de référence composé de trois membres, au moins deux membres doivent pouvoir communiquer et participer au quorum. La perte de cette majorité compromet le fonctionnement normal du plan de contrôle.
-
-La surveillance devra également permettre de distinguer l'indisponibilité globale d'un service de la défaillance isolée de l'un de ses composants.
-
-Ainsi, la perte d'un seul nœud du plan de contrôle ou d'un seul nœud d'exécution ne devra pas être considérée automatiquement comme un incident critique lorsque la redondance permet de maintenir les services.
-
-3.4. Alertes critiques liées au stockage
-
-Les solutions de stockage constituent des dépendances essentielles pour les applications et les services qui nécessitent un accès permanent à leurs données.
-
-La surveillance doit permettre d'identifier les défaillances susceptibles d'empêcher l'accès aux volumes persistants ou aux espaces de stockage objet.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-Longhorn
-
-Indisponibilité d'un volume utilisé par un service critique
-
-Interruption du service ou impossibilité d'accéder à ses données
-
-Longhorn
-
-Défaillance majeure affectant plusieurs volumes essentiels
-
-Indisponibilité simultanée de plusieurs applications
-
-Gestion des volumes Kubernetes
-
-Impossibilité généralisée d'attacher ou de monter des volumes persistants
-
-Échec du démarrage ou du rétablissement des applications
-
-MinIO et stockage objet
-
-Indisponibilité du service de stockage objet utilisé par des applications essentielles
-
-Interruption des opérations dépendantes du stockage
-
-Capacité de stockage
-
-Saturation imminente menaçant la disponibilité des volumes ou des données
-
-Risque d'interruption des écritures ou des services
-
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre de détecter toute indisponibilité du stockage susceptible de compromettre l'accès aux données ou le fonctionnement des applications essentielles.
-
-Pour Longhorn, la surveillance devra notamment permettre d'identifier les volumes indisponibles, les dégradations importantes de la réplication et les situations de capacité insuffisante.
-
-Pour MinIO, elle devra permettre de vérifier la disponibilité du service et sa capacité à répondre aux opérations nécessaires aux applications qui en dépendent.
-
-Une dégradation de la redondance du stockage ne constitue pas systématiquement un incident critique si les volumes restent accessibles. Elle doit néanmoins faire l'objet d'une surveillance adaptée afin d'éviter qu'une nouvelle défaillance entraîne une interruption.
-
-3.5. Alertes critiques liées aux sauvegardes et à la restauration
-
-Les mécanismes de sauvegarde permettent de préserver les données et de faciliter leur récupération en cas d'incident.
-
-Leur surveillance doit permettre de détecter les situations dans lesquelles les capacités de récupération ne répondent plus aux besoins de protection définis.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-Velero
-
-Absence prolongée de sauvegarde valide pour un service essentiel
-
-Risque de perte de données en cas d'incident
-
-Sauvegarde de la base de données etcd
-
-Absence de sauvegarde exploitable dans les délais de protection attendus
-
-Risque de perte de l'état du cluster
-
-Stockage des sauvegardes
-
-Indisponibilité du stockage empêchant la conservation des sauvegardes essentielles
-
-Perte de capacité de protection ou de récupération
-
-Restauration
-
-Échec d'une opération de restauration nécessaire au rétablissement d'un service critique
-
-Prolongation de l'interruption du service
-
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre de vérifier que les sauvegardes essentielles sont réalisées conformément aux fréquences prévues et qu'une sauvegarde exploitable reste disponible dans les délais attendus.
-
-Les échecs ponctuels devront être distingués des situations dans lesquelles la protection des données n'est plus assurée.
-
-La capacité réelle de restauration devra également être vérifiée au moyen de tests périodiques, selon les procédures définies par l'organisation.
-
-3.6. Alertes critiques liées au réseau et à la sécurité
-
-Le réseau et les mécanismes de sécurité contribuent à la disponibilité des services, à la maîtrise des communications et à la protection des ressources Kubernetes.
-
-La surveillance doit permettre de détecter les défaillances majeures susceptibles d'interrompre les communications ou de compromettre les contrôles de sécurité essentiels.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-Réseau des applications
-
-Perte généralisée de connectivité entre services essentiels
-
-Interruption des communications applicatives
-
-Politiques réseau
-
-Modification ou dysfonctionnement provoquant un blocage majeur des communications
-
-Indisponibilité de services dépendants
-
-Kubewarden
-
-Défaillance du contrôle d'admission empêchant les opérations essentielles
-
-Blocage des créations ou modifications de ressources Kubernetes
-
-Gestion des accès
-
-Modification non autorisée des permissions sensibles
-
-Risque de compromission ou de prise de contrôle de ressources critiques
-
-Contrôles de sécurité
-
-Contournement avéré d'une politique de sécurité essentielle
-
-Exposition du cluster ou des applications à des actions non autorisées
-
-Exigences de surveillance
-
-Le dispositif de surveillance doit permettre d'identifier les interruptions majeures de connectivité ainsi que les défaillances des mécanismes de contrôle essentiels au fonctionnement et à la protection du cluster.
-
-Pour Kubewarden, les contrôles devront tenir compte des politiques appliquées et de leur comportement en cas d'indisponibilité.
-
-La surveillance des autorisations et des changements de sécurité pourra nécessiter l'exploitation des journaux d'audit Kubernetes et des événements de configuration, en complément des métriques collectées.
-
-Les refus d'accès ou les rejets de déploiement attendus dans le cadre de l'application normale des politiques ne devront pas être considérés automatiquement comme des incidents critiques.
-
-3.7. Alertes critiques liées aux déploiements et aux tâches automatisées
-
-Les mécanismes de déploiement et d'exécution automatisée contribuent au maintien de la configuration attendue des clusters et au fonctionnement de certains services.
-
-Leur surveillance doit permettre de détecter les défaillances susceptibles de compromettre les opérations essentielles.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-Fleet
-
-Échec généralisé empêchant un déploiement ou une correction indispensable
-
-Impossibilité d'appliquer un changement nécessaire au rétablissement d'un service
-
-Déploiements Kubernetes
-
-Échec d'un déploiement provoquant l'indisponibilité d'un service critique
-
-Interruption du service concerné
-
-Tâches planifiées
-
-Non-exécution d'une tâche essentielle dans les délais attendus
-
-Interruption d'un traitement ou risque pour la continuité du service
-
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre d'identifier les déploiements en échec, les écarts persistants entre les configurations attendues et celles réellement appliquées, ainsi que les tâches essentielles qui ne s'exécutent pas correctement.
-
-La criticité devra être déterminée en fonction des conséquences opérationnelles.
-
-Un échec de synchronisation Fleet ou une tâche planifiée en erreur ne devront pas être automatiquement considérés comme critiques lorsque les services restent disponibles et qu'aucune opération essentielle n'est compromise.
-
-3.8. Alertes critiques liées au dispositif de supervision
-
-La plateforme de supervision doit elle-même faire l'objet d'une surveillance afin de garantir la continuité de la détection et de la transmission des alertes.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-Prometheus
-
-Perte généralisée de la collecte ou de l'évaluation des alertes
-
-Incapacité à détecter certaines défaillances
-
-Mécanisme de notification
-
-Impossibilité de transmettre les alertes critiques aux équipes concernées
-
-Absence de prise en charge des incidents détectés
-
-Thanos
-
-Perte de visibilité sur plusieurs clusters, sans mécanisme alternatif suffisant
-
-Incapacité à assurer correctement la surveillance centralisée
-
-Ensemble du dispositif de supervision
-
-Perte simultanée des capacités de détection et de notification
-
-Absence de visibilité opérationnelle sur les incidents majeurs
-
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre de détecter ses propres défaillances, notamment celles qui compromettent la collecte des données, l'évaluation des conditions d'alerte ou la transmission des notifications.
-
-La surveillance devra également tenir compte des mécanismes de redondance et des éventuelles capacités de supervision locales.
-
-La simple indisponibilité de Grafana ou d'une vue Thanos ne doit pas être assimilée à une perte totale de supervision lorsque les alertes continuent d'être évaluées et transmises correctement.
-
-3.9. Alertes critiques liées aux applications hébergées
-
-Les applications déployées sur les clusters Kubernetes doivent faire l'objet d'une surveillance adaptée à leur importance et aux services qu'elles fournissent.
-
-JFrog Artifactory constitue une première application identifiée dans le périmètre.
-
-Composant
-
-Situation critique à détecter
-
-Conséquences potentielles
-
-JFrog Artifactory
-
-Indisponibilité complète du service lorsque celui-ci est indispensable aux opérations
-
-Interruption de l'accès aux artefacts et des activités dépendantes
-
-Applications essentielles
-
-Indisponibilité globale d'une application critique
-
-Interruption du service fourni aux utilisateurs
-
-Dépendances applicatives
-
-Défaillance d'une dépendance entraînant l'arrêt d'une application essentielle
-
-Interruption ou dégradation majeure du service
-
-Stockage applicatif
-
-Impossibilité d'accéder aux données nécessaires au fonctionnement d'une application critique
-
-Échec des opérations applicatives
-
-Exigences de surveillance
-
-Le dispositif de supervision doit permettre de détecter l'indisponibilité des applications essentielles et les défaillances de leurs dépendances susceptibles d'entraîner une interruption du service.
-
-La surveillance ne devra pas se limiter à l'état des conteneurs Kubernetes. Elle devra également permettre de vérifier, lorsque cela est possible, que l'application répond correctement et qu'elle est en mesure d'assurer ses fonctions principales.
-
-Pour JFrog Artifactory, les exigences spécifiques seront précisées en tenant compte de son architecture de déploiement, de son stockage, de ses services internes et de son utilisation par les équipes.
-
-3.10. Distinction entre situations critiques et situations dégradées
-
-Toutes les anomalies détectées sur le socle Kubernetes ne nécessitent pas une intervention de priorité maximale.
-
-Certaines situations traduisent une réduction de la redondance, une dégradation des performances ou un risque d'incident futur, sans affecter immédiatement la disponibilité des services.
-
-À titre d'exemple :
-
-Situation dégradée
-
-Interprétation
-
-Un membre etcd indisponible sur trois
-
-La redondance est réduite, mais le quorum peut être maintenu
-
-Un nœud du plan de contrôle indisponible
-
-Le cluster peut continuer à fonctionner grâce aux autres nœuds
-
-Un nœud d'exécution indisponible
-
-Les applications peuvent rester disponibles si leur répartition et leur capacité le permettent
-
-Un volume Longhorn dégradé mais accessible
-
-Le stockage reste disponible avec une tolérance aux pannes réduite
-
-Un échec ponctuel de sauvegarde
-
-La protection peut rester suffisante si une sauvegarde récente et exploitable existe
-
-Une synchronisation Fleet en erreur
-
-Les services existants peuvent continuer à fonctionner normalement
-
-Une tâche planifiée non essentielle en échec
-
-L'incident peut être traité selon les délais habituels d'exploitation
-
-Ces événements doivent faire l'objet d'une surveillance adaptée, sans être systématiquement classés comme critiques.
-
-La priorité sera déterminée selon l'environnement, les conséquences observées, les risques d'aggravation et les règles définies dans le référentiel de classification des alertes.
-
-3.11. Validation des alertes identifiées
-
-Les situations présentées dans cette section constituent une première base d'identification des alertes critiques du socle Kubernetes.
-
-Avant leur mise en œuvre, elles devront être examinées afin de confirmer :
-
-Leur pertinence au regard de l'architecture réellement déployée.
-
-Le caractère critique du scénario et son impact potentiel.
-
-L'existence de moyens techniques permettant de détecter la situation.
-
-Les mécanismes de surveillance déjà disponibles.
-
-La nécessité de créer une nouvelle alerte ou d'adapter une règle existante.
-
-Les conditions particulières applicables aux environnements de production et hors production.
-
-Les exigences retenues seront ensuite complétées par la définition des seuils de déclenchement, des tableaux de bord associés et des équipes responsables de leur traitement.
-
-Cette validation permettra de constituer un catalogue d'alertes cohérent, adapté au fonctionnement du socle et exploitable par les équipes opérationnelles.
-
-
-
-
-
-
-
-
-
-
-
-
-## 4. Identification des tableaux de bord de surveillance
-
-### 4.1. Objectif
-
-Les tableaux de bord constituent un moyen essentiel pour suivre l'état de santé du socle Kubernetes, observer l'évolution des ressources et faciliter l'analyse des anomalies détectées par le dispositif de supervision.
-
-Leur identification vise à déterminer les informations nécessaires aux équipes d'exploitation pour disposer d'une visibilité adaptée sur les clusters, les services de plateforme et les applications hébergées.
-
-Les tableaux de bord doivent notamment permettre de visualiser l'état des composants essentiels, de repérer les situations dégradées et de disposer des informations utiles à la compréhension des incidents.
-
-Les besoins de visualisation seront définis en tenant compte des différents domaines technologiques et des exigences de surveillance identifiées précédemment.
-
-### 4.2. Principes d'organisation des tableaux de bord
-
-Les tableaux de bord devront être organisés de manière à faciliter la consultation des informations et à permettre une analyse progressive, depuis une vue générale du socle jusqu'aux composants concernés par une anomalie.
-
-Cette organisation reposera sur trois niveaux complémentaires.
-
-**Vue globale du socle Kubernetes**
-
-Elle devra présenter une synthèse de l'état des différents clusters et permettre d'identifier rapidement ceux qui rencontrent une défaillance ou une dégradation importante.
-
-**Vue par domaine technologique**
-
-Elle devra permettre de suivre les composants appartenant à un même domaine, notamment l'infrastructure Kubernetes, le stockage, le réseau, les sauvegardes, la sécurité et les services d'observabilité.
-
-**Vue détaillée par composant ou service**
-
-Elle devra présenter les informations nécessaires à l'analyse d'un composant particulier, à l'identification des causes possibles d'une anomalie et au suivi de son évolution.
-
-Cette organisation doit permettre aux équipes de passer facilement d'une vision générale à une analyse plus détaillée, sans multiplier inutilement les tableaux de bord.
-
-### 4.3. Tableaux de bord liés à l'infrastructure Kubernetes
-
-Les tableaux de bord de l'infrastructure doivent permettre de suivre le fonctionnement des composants fondamentaux des clusters et d'identifier les situations susceptibles d'affecter leur disponibilité.
-
-| Tableau de bord | Informations attendues |
+| Information | Description attendue |
 |---|---|
-| Vue générale des clusters | Disponibilité des clusters, état des nœuds, nombre d'alertes actives et ressources principales |
-| Plan de contrôle Kubernetes | Disponibilité du serveur d'interface Kubernetes, état des composants de contrôle et erreurs de fonctionnement |
-| Base de données etcd | État des membres, présence d'un responsable élu, changements de responsable, latence des opérations et utilisation de l'espace de stockage |
-| Nœuds Kubernetes | Disponibilité des nœuds, consommation du processeur, mémoire, espace disque et conditions de fonctionnement |
-| Ressources Kubernetes | État des applications déployées, disponibilité des instances, redémarrages et consommation des ressources |
+| Composant surveillé | Service ou ressource concerné par l'alerte |
+| Situation détectée | Anomalie ou défaillance recherchée |
+| Indicateur de surveillance | Métrique, état, événement ou contrôle utilisé |
+| Condition de déclenchement | Situation devant entraîner une alerte |
+| Valeur du seuil | Limite retenue lorsqu'une valeur mesurable est applicable |
+| Durée de persistance | Temps pendant lequel la condition doit être présente |
+| Environnement | Production, hors production ou les deux |
+| Justification | Raisons techniques et opérationnelles du seuil |
+| Retour à la normale | Conditions permettant de considérer l'anomalie comme résolue |
+| Statut de validation | État de validation du seuil retenu |
 
-Ces tableaux de bord devront permettre de distinguer les défaillances touchant l'ensemble d'un cluster des anomalies limitées à un nœud ou à un composant.
+Les valeurs retenues devront, dans la mesure du possible, être fondées sur les caractéristiques techniques des composants, les observations de fonctionnement, les exigences des services et les recommandations des éditeurs.
 
-Une attention particulière sera portée à la surveillance de la base de données etcd et du plan de contrôle, compte tenu de leur rôle dans le fonctionnement global du cluster.
+### 5.14. Validation et révision des seuils
 
-### 4.4. Tableaux de bord liés au réseau Kubernetes
+Les seuils proposés devront être validés avant leur généralisation aux différents clusters.
 
-La surveillance du réseau doit permettre de visualiser l'état des services assurant les communications entre les composants et les applications.
+Cette validation devra permettre de vérifier que les alertes se déclenchent dans les situations attendues, qu'elles signalent correctement les anomalies significatives et qu'elles ne génèrent pas un volume excessif de notifications inutiles.
 
-| Tableau de bord | Informations attendues |
-|---|---|
-| Santé du réseau Kubernetes | Disponibilité des composants réseau, erreurs et anomalies de communication |
-| Résolution des noms | Disponibilité de CoreDNS, volume des requêtes, erreurs de résolution et temps de réponse |
-| Connectivité des services | Résultats des vérifications de connectivité entre les services essentiels |
-| Politiques réseau | Informations disponibles sur les erreurs, les refus de communication et les contrôles de conformité |
+Les seuils devront également être réévalués à la suite de changements d'architecture, de modifications importantes de la charge, de l'intégration de nouveaux services ou d'incidents révélant des limites dans les mécanismes de détection.
 
-Les informations présentées dépendront des capacités de collecte disponibles au sein du cluster.
-
-Les tableaux de bord devront permettre de distinguer les défaillances générales du réseau des problèmes de communication limités à certaines applications.
-
-La présence d'une politique réseau ne garantit pas, à elle seule, que les communications autorisées fonctionnent correctement. Des contrôles de connectivité pourront donc être nécessaires en complément des métriques techniques.
-
-### 4.5. Tableaux de bord liés au stockage
-
-Les tableaux de bord du stockage doivent permettre de suivre la disponibilité des espaces de stockage, leur état de santé et leur capacité à répondre aux besoins des applications.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Santé générale de Longhorn | Disponibilité des composants, état des volumes et anomalies de fonctionnement |
-| Volumes persistants | État des volumes, disponibilité, niveau de réplication et incidents affectant l'accès aux données |
-| Capacité de stockage | Espace disponible, espace utilisé, évolution de la consommation et risques de saturation |
-| Gestion des volumes Kubernetes | État des demandes de stockage, erreurs de création, d'attachement et de montage |
-| Stockage objet MinIO | Disponibilité du service, capacité utilisée, erreurs d'accès et fonctionnement des opérations de stockage |
-
-Ces tableaux de bord devront permettre de repérer les volumes indisponibles, les dégradations de réplication et les situations dans lesquelles la capacité restante devient insuffisante.
-
-Une visibilité particulière devra être accordée aux volumes et espaces de stockage utilisés par les services essentiels.
-
-### 4.6. Tableaux de bord liés aux sauvegardes et à la restauration
-
-La surveillance des sauvegardes doit permettre de vérifier que les mécanismes de protection des données fonctionnent conformément aux attentes.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Suivi des sauvegardes Velero | Dernières sauvegardes exécutées, résultats, échecs et évolution des opérations |
-| Protection des données | Ancienneté de la dernière sauvegarde valide et état de protection des services concernés |
-| Sauvegardes de la base de données etcd | Date de la dernière sauvegarde réussie, état des opérations et informations disponibles sur la conservation |
-| Suivi des restaurations | Résultats des opérations et tests de restauration, dernières vérifications réalisées |
-
-Les tableaux de bord devront permettre d'identifier les services pour lesquels aucune sauvegarde valide n'a été obtenue dans les délais prévus.
-
-Les informations relatives aux tests de restauration devront être intégrées lorsqu'elles sont disponibles, éventuellement à partir de données de suivi complémentaires.
-
-### 4.7. Tableaux de bord liés à la sécurité et à la gouvernance
-
-Les tableaux de bord de sécurité doivent fournir une visibilité sur le fonctionnement des mécanismes de contrôle et sur les événements susceptibles d'affecter la protection du socle Kubernetes.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Santé de Kubewarden | Disponibilité des composants, erreurs d'évaluation et fonctionnement des politiques |
-| Application des politiques | Nombre de requêtes acceptées ou rejetées, évolution des refus et anomalies constatées |
-| Gestion des accès | Modifications sensibles des rôles et autorisations, lorsque les journaux d'audit permettent leur suivi |
-| Conformité des configurations | Résultats des contrôles de conformité et écarts identifiés par rapport aux règles attendues |
-
-Les informations présentées devront permettre de distinguer l'application normale des politiques de sécurité des dysfonctionnements nécessitant une intervention.
-
-Les tableaux de bord de sécurité pourront s'appuyer sur différentes sources de données, notamment les métriques, les événements Kubernetes et les journaux d'audit.
-
-### 4.8. Tableaux de bord liés aux déploiements et aux tâches automatisées
-
-Les tableaux de bord de ce domaine doivent permettre de suivre le fonctionnement des mécanismes de déploiement et l'exécution des opérations automatisées.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Gestion des déploiements Fleet | État de synchronisation, déploiements réussis ou en échec, écarts de configuration |
-| Déploiements Kubernetes | Disponibilité des applications déployées, erreurs de déploiement et instances non disponibles |
-| Tâches planifiées | Dernières exécutions, résultats, échecs, durées et tâches dont l'exécution attendue est absente |
-
-Une attention particulière devra être accordée aux tâches et aux déploiements dont l'échec pourrait affecter le fonctionnement des services essentiels.
-
-Les informations devront permettre de distinguer une anomalie ponctuelle d'une situation persistante nécessitant une intervention.
-
-### 4.9. Tableaux de bord liés à la supervision et à l'observabilité
-
-Le dispositif de supervision doit disposer de tableaux de bord permettant de suivre son propre fonctionnement.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Santé de Prometheus | Disponibilité, état des collectes, erreurs et fonctionnement de l'évaluation des alertes |
-| Santé de Thanos | Disponibilité des composants, état des sources de données et erreurs d'interrogation |
-| Gestion des alertes | Alertes actives, état des notifications, erreurs de transmission et fonctionnement des mécanismes de routage |
-| Santé générale de la supervision | Disponibilité des composants de supervision et éventuelles pertes de visibilité sur les clusters |
-
-Ces tableaux de bord devront permettre d'identifier rapidement toute défaillance susceptible de compromettre la détection ou la transmission des alertes.
-
-Une attention particulière sera portée aux situations dans lesquelles les outils de supervision ne sont plus en mesure de signaler leurs propres défaillances.
-
-### 4.10. Tableaux de bord liés aux applications hébergées
-
-La surveillance applicative doit fournir une visibilité sur la disponibilité des applications, leur fonctionnement et leurs principales dépendances.
-
-| Tableau de bord | Informations attendues |
-|---|---|
-| Santé générale des applications | Disponibilité des services essentiels, erreurs et état des composants applicatifs |
-| JFrog Artifactory | Disponibilité du service, état des composants, erreurs applicatives et performances |
-| Ressources applicatives | Consommation des ressources, disponibilité des instances et événements de redémarrage |
-| Dépendances applicatives | Disponibilité des services de stockage et des autres dépendances essentielles |
-
-Pour JFrog Artifactory, les informations devront permettre de distinguer les problèmes liés à l'infrastructure Kubernetes de ceux provenant du fonctionnement propre de l'application.
-
-La surveillance applicative devra également permettre de vérifier, lorsque cela est possible, que les fonctions essentielles du service sont accessibles et opérationnelles.
-
-### 4.11. Identification et réutilisation des tableaux de bord existants
-
-La plateforme Grafana dispose déjà de capacités de visualisation pouvant couvrir une partie des besoins identifiés.
-
-Avant de créer de nouveaux tableaux de bord, un inventaire des vues existantes devra être réalisé afin de déterminer leur adéquation avec les exigences de surveillance.
-
-Cette évaluation devra permettre d'identifier :
-
-- Les tableaux de bord déjà disponibles et exploitables.
-- Les informations correctement couvertes.
-- Les indicateurs manquants.
-- Les tableaux de bord nécessitant des adaptations.
-- Les besoins justifiant la création de nouvelles vues.
-
-Les tableaux de bord retenus devront être suffisamment documentés pour permettre leur compréhension et leur utilisation par les équipes d'exploitation.
-
-### 4.12. Validation des besoins de visualisation
-
-Les besoins de visualisation identifiés devront être validés en fonction des usages opérationnels et des capacités techniques disponibles.
-
-La validation portera notamment sur la pertinence des indicateurs, la disponibilité des données, la lisibilité des vues et leur utilité lors de l'analyse des incidents.
-
-Chaque tableau de bord devra avoir un objectif clairement identifié et apporter une information utile aux équipes responsables du suivi des composants concernés.
-
-Une attention particulière sera accordée à la cohérence entre les alertes et les informations disponibles dans Grafana, afin de faciliter le passage de la détection d'une anomalie à son diagnostic.
-
-Les tableaux de bord validés constitueront le catalogue de référence des besoins de visualisation du socle Kubernetes.
-
-
-
-
-
+Les conditions retenues constitueront le référentiel de seuils utilisé pour la configuration et la maintenance des règles de surveillance du socle Kubernetes.
